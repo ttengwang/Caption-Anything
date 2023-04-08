@@ -15,11 +15,11 @@ class TextRefiner:
         self.short_prompts = {
             "length": "around {length} words",
             "sentiment": "of {sentiment} sentiment",
-            "language": " in {language}",
+            "language": "in {language}",
             }
         
         self.long_prompts = {
-            "imagination": "The new sentence could extend the original description by using your imagination to create additional details, or think about what might have happened before or after the scene in the image",
+            "imagination": "The new sentence could extend the original description by using your imagination to create additional details, or think about what might have happened before or after the scene in the image, but should not conflict with the original sentence",
         }
         
         self.wiki_prompts = "I want you to act as a Wikipedia page. I will give you a sentence and you will parse the single main object in the sentence and provide a summary of that object in the format of a Wikipedia page. Your summary should be informative and factual, covering the most important aspects of the object. Start your summary with an introductory paragraph that gives an overview of the object. The overall length of the response should be around 100 words. You should not describe the parsing process and only provide the final summary. The sentence is \"{query}\"."
@@ -73,10 +73,12 @@ class TextRefiner:
 if __name__ == "__main__":
     model = TextRefiner(device='cpu')
     controls = {
-        "length": "80",
+        "length": "30",
         "sentiment": "negative",
-        "imagination": "True",
+        # "imagination": "True",
+        "imagination": "False",
         "language": "English",
     }
-    model.inference(query='a dog is sitting on a brown bench', controls=controls)
+    # model.inference(query='a dog is sitting on a brown bench', controls=controls)
+    model.inference(query='a cat is sleeping', controls=controls)
     
