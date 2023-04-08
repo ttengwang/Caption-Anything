@@ -16,7 +16,9 @@ class TextRefiner:
         out = response.strip()
         return out
     
-    def prepare_input(self, prompts, query)
+    def prepare_input(self, prompts, query):
+        input = '. '.join(prompts) + 'The input sentence is: ' + query
+        return input
     
     def inference(self, query: str, controls: list):
         prompts = []
