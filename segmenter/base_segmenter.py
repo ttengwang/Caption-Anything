@@ -11,7 +11,7 @@ class BaseSegmenter:
         self.processor = None
         self.model = None
         
-    def inference(image: str, control: Any=None):
+    def inference(image: str, prompt: Any=None):
         if type(image) == str: # input path
             image = Image.open(image)
         

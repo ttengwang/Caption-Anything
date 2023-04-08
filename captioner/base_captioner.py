@@ -23,7 +23,8 @@ def seg_to_box(seg_mask: Union[np.ndarray, Image.Image, str]):
     return box
 
 def cut_box(img, rect_points):
-    dst_pts = np.array([[0, 0], [0, img.shape[0]], [img.shape[1], img.shape[0]], [img.shape[1], 0]], dtype="float32")
+    dst_pts = np.array([[img.shape[1], img.shape[0]], [0, img.shape[0]], [0, 0], [img.shape[1], 0]], dtype="float32")    
+    # dst_pts = np.array([[0, 0], [0, img.shape[0]], [img.shape[1], img.shape[0]], [img.shape[1], 0]], dtype="float32")
     transform = cv2.getPerspectiveTransform(rect_points.astype("float32"), dst_pts)
     cropped_img = cv2.warpPerspective(img, transform, (img.shape[1], img.shape[0]))
     return cropped_img
@@ -81,5 +82,6 @@ if __name__ == '__main__':
     image_path = 'test_img/img2.jpg'
     seg_mask = np.zeros((15,15))
     seg_mask[5:10, 5:10] = 1
+    seg_mask = 'image/SAM/img10.jpg.raw_mask.png'
     print(model.inference_seg(image_path, seg_mask))
     
