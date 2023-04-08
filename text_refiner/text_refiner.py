@@ -49,7 +49,7 @@ class TextRefiner:
             'wiki': response_wiki
         }    
         print(out)
-        return response
+        return out
     
 if __name__ == "__main__":
     model = TextRefiner(device='cpu')
