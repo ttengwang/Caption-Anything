@@ -1,9 +1,11 @@
 result/
+model_cache/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+result/
 
 # C extensions
 *.so

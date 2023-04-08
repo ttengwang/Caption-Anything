@@ -23,7 +23,8 @@ def seg_to_box(seg_mask: Union[np.ndarray, Image.Image, str]):
     return box
 
 def cut_box(img, rect_points):
-    dst_pts = np.array([[0, 0], [0, img.shape[0]], [img.shape[1], img.shape[0]], [img.shape[1], 0]], dtype="float32")
+    dst_pts = np.array([[img.shape[1], img.shape[0]], [0, img.shape[0]], [0, 0], [img.shape[1], 0]], dtype="float32")    
+    # dst_pts = np.array([[0, 0], [0, img.shape[0]], [img.shape[1], img.shape[0]], [img.shape[1], 0]], dtype="float32")
     transform = cv2.getPerspectiveTransform(rect_points.astype("float32"), dst_pts)
     cropped_img = cv2.warpPerspective(img, transform, (img.shape[1], img.shape[0]))
     return cropped_img
@@ -37,13 +38,7 @@ class BaseCaptioner:
         self.model = None
 
     def inference(self, image: Union[np.ndarray, Image.Image, str]):
-        if type(image) == str: # input path
-            image = Image.open(image)
-        inputs = self.processor(image, return_tensors="pt").to(self.device, self.torch_dtype)
-        out = self.model.generate(**inputs)
-        captions = self.processor.decode(out[0], skip_special_tokens=True)
-        print(f"\nProcessed ImageCaptioning, Output Text: {captions}")
-        return captions
+        raise NotImplementedError()
     
     def inference_box(self, image: Union[np.ndarray, Image.Image, str], box: Union[list, np.ndarray]):
         if type(image) == str: # input path
@@ -81,5 +76,6 @@ if __name__ == '__main__':
     image_path = 'test_img/img2.jpg'
     seg_mask = np.zeros((15,15))
     seg_mask[5:10, 5:10] = 1
+    seg_mask = 'image/SAM/img10.jpg.raw_mask.png'
     print(model.inference_seg(image_path, seg_mask))
     

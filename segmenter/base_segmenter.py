@@ -17,7 +17,7 @@ class BaseSegmenter:
         self.checkpoint = checkpoint
         self.model = sam_model_registry[self.model_type](checkpoint=self.checkpoint)
         self.model.to(device=self.device)
-        
+
         self.predictor = SamPredictor(self.model)
         self.mask_generator = SamAutomaticMaskGenerator(self.model)
         
