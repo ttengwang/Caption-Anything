@@ -29,21 +29,16 @@ def cut_box(img, rect_points):
     return cropped_img
     
 class BaseCaptioner:
-    def __init__(self, device):
+    def __init__(self, device, huggingface_cache_dir='.cache'):
         print(f"Initializing ImageCaptioning to {device}")
         self.device = device
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
         self.processor = None
         self.model = None
+        self.huggingface_cache_dir = huggingface_cache_dir
 
     def inference(self, image: Union[np.ndarray, Image.Image, str]):
-        if type(image) == str: # input path
-            image = Image.open(image)
-        inputs = self.processor(image, return_tensors="pt").to(self.device, self.torch_dtype)
-        out = self.model.generate(**inputs)
-        captions = self.processor.decode(out[0], skip_special_tokens=True)
-        print(f"\nProcessed ImageCaptioning, Output Text: {captions}")
-        return captions
+        raise NotImplementedError()
     
     def inference_box(self, image: Union[np.ndarray, Image.Image, str], box: Union[list, np.ndarray]):
         if type(image) == str: # input path
