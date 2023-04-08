@@ -11,9 +11,9 @@ class GITCaptioner(BaseCaptioner):
         super().__init__(device)
         self.device = device
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
-        self.processor = AutoProcessor.from_pretrained("microsoft/git-large", cache_dir=self.huggingface_cache_dir)
+        self.processor = AutoProcessor.from_pretrained("microsoft/git-large")
         self.model = GitForCausalLM.from_pretrained(
-            "microsoft/git-large", torch_dtype=self.torch_dtype, cache_dir=self.huggingface_cache_dir).to(self.device)
+            "microsoft/git-large", torch_dtype=self.torch_dtype).to(self.device)
         
     def inference(self, image: Union[np.ndarray, Image.Image, str]):
         if type(image) == str: # input path

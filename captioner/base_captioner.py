@@ -30,13 +30,12 @@ def cut_box(img, rect_points):
     return cropped_img
     
 class BaseCaptioner:
-    def __init__(self, device, huggingface_cache_dir='.cache'):
+    def __init__(self, device):
         print(f"Initializing ImageCaptioning to {device}")
         self.device = device
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
         self.processor = None
         self.model = None
-        self.huggingface_cache_dir = huggingface_cache_dir
 
     def inference(self, image: Union[np.ndarray, Image.Image, str]):
         raise NotImplementedError()
