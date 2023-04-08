@@ -14,3 +14,4 @@ Caption-Anything supports both visual controls and textual controls:
 * Length
 * Sentiment
 * Wikipedia Search
+* Template sentence
