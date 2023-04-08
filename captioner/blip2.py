@@ -8,12 +8,11 @@ import numpy as np
 from typing import Union
 from base_captioner import BaseCaptioner
 
-
 class BLIP2Captioner(BaseCaptioner):
-    def __init__(self, device, prompt: str = None, cache_dir = None):
+    def __init__(self, device, dialogue: bool = False, cache_dir = None):
         super().__init__(device)
         self.device = device
-        self.prompt = prompt
+        self.dialogue = dialogue
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
         if cache_dir is not None:
             self.processor = AutoProcessor.from_pretrained("Salesforce/blip2-opt-2.7b", cache_dir = cache_dir)
@@ -26,19 +25,32 @@ class BLIP2Captioner(BaseCaptioner):
     def inference(self, image: Union[np.ndarray, Image.Image, str]):
         if type(image) == str: # input path
                 image = Image.open(image)
-        if self.prompt is not None:
-            inputs = self.processor(image, text = self.prompt, return_tensors="pt").to(self.device, self.torch_dtype)
-        else:
+
+        if not self.dialogue:
             inputs = self.processor(image, return_tensors="pt").to(self.device, self.torch_dtype)
-        out = self.model.generate(**inputs, max_new_tokens=50)
-        captions = self.processor.decode(out[0], skip_special_tokens=True)
-        print(f"\nProcessed ImageCaptioning by BLIP2Captioner, Output Text: {captions}")
+            out = self.model.generate(**inputs, max_new_tokens=50)
+            captions = self.processor.decode(out[0], skip_special_tokens=True)
+            print(f"\nProcessed ImageCaptioning by BLIP2Captioner, Output Text: {captions}")
+            return captions
+        else:
+            context = []
+            template = "Question: {} Answer: {}."
+            while(True):
+                input_texts = input()
+                if input_texts == 'end':
+                    break
+                prompt = " ".join([template.format(context[i][0], context[i][1]) for i in range(len(context))]) + " Question: " + input_texts + " Answer:"
+                inputs = self.processor(image, text = prompt, return_tensors="pt").to(self.device, self.torch_dtype)
+                out = self.model.generate(**inputs, max_new_tokens=50)
+                captions = self.processor.decode(out[0], skip_special_tokens=True).strip()
+                context.append((input_texts, captions))
+    
         return captions
 
 if __name__ == '__main__':
 
-    prompt = 'Question: what is the animal in the picture? Answer: a dog. Question: where is this dog and what is it doing? Answer: '
-    model = BLIP2Captioner(device='cuda:4', prompt = prompt, cache_dir = '/nvme-ssd/fjj/Caption-Anything/model_cache')
+    dialogue = True
+    model = BLIP2Captioner(device='cuda:4', dialogue = dialogue, cache_dir = '/nvme-ssd/fjj/Caption-Anything/model_cache')
     image_path = 'test_img/img2.jpg'
     seg_mask = np.zeros((224,224))
     seg_mask[50:200, 50:200] = 1
