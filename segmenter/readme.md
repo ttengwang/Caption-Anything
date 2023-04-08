@@ -1,4 +1,4 @@
-Prepare SAM
+### Prepare SAM
 ```
 pip install git+https://github.com/facebookresearch/segment-anything.git
 ```
@@ -11,12 +11,13 @@ cd segment-anything; pip install -e .
 ```
 pip install opencv-python pycocotools matplotlib onnxruntime onnx
 ```
-download the checkpoint:
+### Download the checkpoint:
 
 https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
 
-Inference
-The prompts are in json format.
+### Inference
+
+The prompts are in json format:
 
 ```
 prompts = [
@@ -64,4 +65,4 @@ for i, prompt in enumerate(prompts):
     masks = segmenter.inference(image_path, prompt)
 ```
 
-Outputs are masks (True and False numpy Matrix), shape (num of masks, height, weight)
+Outputs are masks (True and False numpy Matrix), shape: (num of masks, height, weight)
