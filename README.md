@@ -16,11 +16,17 @@ Caption-Anything supports both visual controls and textual controls:
 * Wikipedia Search
 * Template sentence
 
+# Environment setup
+```
+# change the openai api-key value in env.sh
+bash env.sh
+```
+
 
 # RUN
 ```
 # (optional) set transformer cache dir
-export HUGGINGFACE_HUB_CACHE=/your/path/to/cache/huggingface/ 
+export HUGGINGFACE_HUB_CACHE=/your/path/to/cache/
 
 # set openai api key
 export OPENAI_API_KEY={Your_Private_Openai_Key}

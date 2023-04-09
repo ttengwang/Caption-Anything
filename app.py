@@ -192,4 +192,4 @@ with gr.Blocks(
     )
 
 iface.queue(concurrency_count=1, api_open=False, max_size=10)
-iface.launch(server_name="0.0.0.0", enable_queue=True, share=True, server_port=args.port)
+iface.launch(server_name="0.0.0.0", enable_queue=True, server_port=args.port, share=args.gradio_share)
