@@ -12,17 +12,14 @@ import torchvision.transforms.functional as F
 
 
 class BLIPCaptioner(BaseCaptioner):
-    def __init__(self, device, cache_dir = None):
-        super().__init__(device)
+    def __init__(self, device, enable_filter=False):
+        super().__init__(device, enable_filter)
         self.device = device
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
-        if cache_dir is not None:
-            self.processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large", cache_dir = cache_dir)
-            self.model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large", cache_dir = cache_dir, torch_dtype=self.torch_dtype).to(self.device)
-        else:
-            self.processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
-            self.model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large", torch_dtype=self.torch_dtype).to(self.device)
-
+        self.processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
+        self.model = BlipForConditionalGeneration.from_pretrained(
+            "Salesforce/blip-image-captioning-large", torch_dtype=self.torch_dtype).to(self.device)
+        
     @torch.no_grad()
     def inference(self, image: Union[np.ndarray, Image.Image, str]):
         if type(image) == str: # input path
