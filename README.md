@@ -16,6 +16,12 @@ Caption-Anything supports both visual controls and textual controls:
 * Wikipedia Search
 * Template sentence
 
+# Environment setup
+```
+# change the openai api-key value in env.sh
+bash env.sh
+```
+
 
 # RUN
 ```
