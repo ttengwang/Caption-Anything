@@ -99,9 +99,16 @@ class BaseCaptioner:
         text_features = self.filter.encode_text(text)    # (1, 512)
         image_features /= image_features.norm(dim = -1, keepdim = True)
         text_features /= text_features.norm(dim = -1, keepdim = True)
-        similarity = torch.matmul(image_features, text_features.transpose(1, 0))
-        return similarity.item()
+        similarity = torch.matmul(image_features, text_features.transpose(1, 0)).item()
+        if similarity < self.threshold:
+            print('There seems to be nothing where you clicked.')
+            out = ""
+        else:
+            out = caption
+        print(f'Clip score of the caption is {similarity}')
+        return out
 
+        
     def inference(self, image: Union[np.ndarray, Image.Image, str]):
         raise NotImplementedError()
     
@@ -124,15 +131,7 @@ class BaseCaptioner:
         crop_save_path = f'result/crop_{time.time()}.png'
         Image.fromarray(image_crop).save(crop_save_path)
         print(f'croped image saved in {crop_save_path}')
-        caption = self.inference(image_crop)
-        
-        if self.enable_filter:
-            clip_score = self.filter_caption(image_crop, caption)
-            print(f'filtering caption: {caption}, clip_score: {clip_score}')
-            if clip_score > self.threshold:
-                return caption
-            else:
-                return 'N/A'            
+        caption = self.inference(image_crop, filter)         
         return caption
         
 
