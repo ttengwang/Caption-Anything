@@ -9,6 +9,37 @@ from typing import Union
 import time
 import clip
 
+def boundary(inputs):
+    
+    col = inputs.shape[1]
+    inputs = inputs.reshape(-1)
+    lens = len(inputs)
+
+    for i in range(lens):
+        if inputs[i] != False:
+            break
+    for j in range(lens):
+        if inputs[lens - 1 - j] != False:
+            break
+    start = i
+    end = lens - 1 - j
+    top = start // col
+    bottom = end // col
+    
+    return top, bottom
+
+def new_seg_to_box(seg_mask: Union[np.ndarray, Image.Image, str]):
+    
+    if type(seg_mask) == str:
+        seg_mask = Image.open(seg_mask)
+    elif type(seg_mask) == np.ndarray:
+        seg_mask = Image.fromarray(seg_mask)
+    seg_mask = np.array(seg_mask) > 0
+    size = max(seg_mask.shape[0], seg_mask.shape[1])
+    top, bottom = boundary(seg_mask)
+    left, right = boundary(seg_mask.T)
+    return [left / size, top / size, right / size, bottom / size]
+
 def seg_to_box(seg_mask: Union[np.ndarray, Image.Image, str]):
     if type(seg_mask) == str:
         seg_mask = cv2.imread(seg_mask, cv2.IMREAD_GRAYSCALE)
@@ -86,7 +117,7 @@ class BaseCaptioner:
         if np.array(box).size == 4: # [x0, y0, x1, y1], where (x0, y0), (x1, y1) represent top-left and bottom-right corners
             size = max(image.width, image.height)
             x1, y1, x2, y2 = box
-            image_crop = image.crop((x1 * size, y1 * size, x2 * size, y2 * size))       
+            image_crop = np.array(image.crop((x1 * size, y1 * size, x2 * size, y2 * size)))  
         elif np.array(box).size == 8: # four corners of an irregular rectangle
             image_crop = cut_box(np.array(image), box)
 

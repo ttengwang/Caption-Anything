@@ -6,6 +6,7 @@ import numpy as np
 from typing import Union
 from segment_anything import sam_model_registry, SamPredictor, SamAutomaticMaskGenerator
 import matplotlib.pyplot as plt
+import PIL
 
 class BaseSegmenter:
     def __init__(self, device, checkpoint, model_type='vit_h'):
@@ -26,6 +27,8 @@ class BaseSegmenter:
         if type(image) == str: # input path
             image = cv2.imread(image)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        elif type(image) == PIL.Image.Image:
+            image = np.array(image)
         
         if 'everything' in control['prompt_type']:
             masks = self.mask_generator.generate(image)
