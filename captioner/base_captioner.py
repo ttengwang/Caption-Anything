@@ -22,6 +22,10 @@ def seg_to_box(seg_mask: Union[np.ndarray, Image.Image, str]):
     contours = np.concatenate(contours, axis=0)
     rect = cv2.minAreaRect(contours)
     box = cv2.boxPoints(rect)
+    if rect[-1] >= 45:
+        box.argmin(axis=0)
+        
+
     box = np.int0(box)
     pdb.set_trace()
     return box
@@ -68,7 +72,7 @@ class BaseCaptioner:
     def inference(self, image: Union[np.ndarray, Image.Image, str]):
         raise NotImplementedError()
     
-    def inference_box(self, image: Union[np.ndarray, Image.Image, str], box: Union[list, np.ndarray]):
+    def inference_box(self, image: Union[np.ndarray, Image.Image, str], box: Union[list, np.ndarray], filter=False):
         if type(image) == str: # input path
             image = Image.open(image)
         elif type(image) == np.ndarray:
@@ -84,9 +88,19 @@ class BaseCaptioner:
         crop_save_path = f'result/crop_{time.time()}.png'
         Image.fromarray(image_crop).save(crop_save_path)
         print(f'croped image saved in {crop_save_path}')
-        return self.inference(image_crop)
+        caption = self.inference(image_crop)
+        
+        if filter:
+            clip_score = self.filter_caption(image_crop, caption)
+            print(f'filtering caption: {caption}, clip_score: {clip_score}')
+            if clip_score > self.threshold:
+                return caption
+            else:
+                return 'N/A'            
+        return caption
+        
 
-    def inference_seg(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str], crop_mode="w_bg"):
+    def inference_seg(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str], crop_mode="w_bg", filter=False):
         if type(image) == str:
             image = Image.open(image)
         if type(seg_mask) == str:
@@ -102,7 +116,9 @@ class BaseCaptioner:
             image = np.array(image)
             
         min_area_box = seg_to_box(seg_mask)
-        return self.inference_box(image, min_area_box)
+        return self.inference_box(image, min_area_box, filter)
+        
+
 
         
 if __name__ == '__main__':

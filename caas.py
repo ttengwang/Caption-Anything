@@ -25,7 +25,7 @@ class CaptionAnything():
         print('seg_mask path: ', mask_save_path)
         print("seg_mask.shape: ", seg_mask.shape)
         #  captioning with mask
-        caption = self.captioner.inference_seg(image_path, seg_mask, crop_mode=self.args.seg_crop_mode)
+        caption = self.captioner.inference_seg(image_path, seg_mask, crop_mode=self.args.seg_crop_mode, filter=True)
         #  refining with TextRefiner
         refined_caption = self.text_refiner.inference(query=caption, controls=controls)
         return refined_caption
