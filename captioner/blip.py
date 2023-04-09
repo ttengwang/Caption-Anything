@@ -18,13 +18,17 @@ class BLIPCaptioner(BaseCaptioner):
         self.model = BlipForConditionalGeneration.from_pretrained(
             "Salesforce/blip-image-captioning-base", torch_dtype=self.torch_dtype).to(self.device)
         
-
+    @torch.no_grad()
     def inference(self, image: Union[np.ndarray, Image.Image, str]):
         if type(image) == str: # input path
                 image = Image.open(image)
         inputs = self.processor(image, return_tensors="pt").to(self.device, self.torch_dtype)
         out = self.model.generate(**inputs, max_new_tokens=50)
         captions = self.processor.decode(out[0], skip_special_tokens=True)
+        similarity = self.filter_caption(image, captions)
+        if similarity < self.threshold:
+            print('There seems to be nothing where you clicked.')
+            return ''
         print(f"\nProcessed ImageCaptioning by BLIPCaptioner, Output Text: {captions}")
         return captions
 
