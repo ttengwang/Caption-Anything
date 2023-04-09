@@ -109,7 +109,7 @@ class BaseCaptioner:
         return out
 
         
-    def inference(self, image: Union[np.ndarray, Image.Image, str]):
+    def inference(self, image: Union[np.ndarray, Image.Image, str], filter: bool=False):
         raise NotImplementedError()
     
     def inference_with_reduced_tokens(self, image: Union[np.ndarray, Image.Image, str], seg_mask):
