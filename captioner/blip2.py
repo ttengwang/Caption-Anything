@@ -9,17 +9,13 @@ from typing import Union
 from .base_captioner import BaseCaptioner
 
 class BLIP2Captioner(BaseCaptioner):
-    def __init__(self, device, dialogue: bool = False, cache_dir = None):
+    def __init__(self, device, dialogue: bool = False):
         super().__init__(device)
         self.device = device
         self.dialogue = dialogue
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
-        if cache_dir is not None:
-            self.processor = AutoProcessor.from_pretrained("Salesforce/blip2-opt-2.7b", cache_dir = cache_dir)
-            self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b", cache_dir = cache_dir, torch_dtype = self.torch_dtype).to(device)
-        else:
-            self.processor = AutoProcessor.from_pretrained("Salesforce/blip2-opt-2.7b")
-            self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b", torch_dtype = self.torch_dtype).to(device)
+        self.processor = AutoProcessor.from_pretrained("Salesforce/blip2-opt-2.7b")
+        self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b", torch_dtype = self.torch_dtype).to(device)
         
     @torch.no_grad()
     def inference(self, image: Union[np.ndarray, Image.Image, str]):
