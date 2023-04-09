@@ -12,13 +12,13 @@ import torchvision.transforms.functional as F
 
 
 class BLIPCaptioner(BaseCaptioner):
-    def __init__(self, device):
-        super().__init__(device)
+    def __init__(self, device, enable_filter=False):
+        super().__init__(device, enable_filter)
         self.device = device
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
-        self.processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large", cache_dir='.cache')
+        self.processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
         self.model = BlipForConditionalGeneration.from_pretrained(
-            "Salesforce/blip-image-captioning-large", torch_dtype=self.torch_dtype, cache_dir='.cache').to(self.device)
+            "Salesforce/blip-image-captioning-large", torch_dtype=self.torch_dtype).to(self.device)
         
     @torch.no_grad()
     def inference(self, image: Union[np.ndarray, Image.Image, str]):
