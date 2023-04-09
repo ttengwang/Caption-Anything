@@ -70,6 +70,12 @@ def upload_callback(image_input, state):
     state = state + [('Image size: ' + str(image_input.size), None)]
     return state
 
+# get coordinate in format [[x,y,positive/negative]]
+def get_select_coords(evt: gr.SelectData):
+
+        coordinate = "[[{}, {}, 1]]".format(str(evt.index[0]), str(evt.index[1]))
+        return coordinate
+
 
 with gr.Blocks(
     css="""
@@ -179,13 +185,15 @@ with gr.Blocks(
                         [chatbot, state, click_state, image_output_mask, image_output_crop],
                     )
 
+            # select coordinate
+            image_input.select(get_select_coords, outputs=chat_input)
+
             image_input.change(
                 lambda: ("", [], [[], []]),
                 [],
                 [chatbot, state, click_state],
                 queue=False,
             )
-
     examples = gr.Examples(
         examples=examples,
         inputs=[image_input, chat_input],
