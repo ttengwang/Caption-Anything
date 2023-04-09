@@ -135,7 +135,7 @@ class BaseCaptioner:
         return caption
         
 
-    def inference_seg(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str], crop_mode="w_bg", filter=False):
+    def inference_seg(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str], crop_mode="w_bg", filter=False, regular_box = False):
         if type(image) == str:
             image = Image.open(image)
         if type(seg_mask) == str:
@@ -149,8 +149,11 @@ class BaseCaptioner:
             image = np.array(image) * seg_mask[:,:,np.newaxis]
         else:
             image = np.array(image)
-            
-        min_area_box = seg_to_box(seg_mask)
+
+        if regular_box:
+            min_area_box = new_seg_to_box(seg_mask)
+        else:
+            min_area_box = seg_to_box(seg_mask)
         return self.inference_box(image, min_area_box, filter)
         
 

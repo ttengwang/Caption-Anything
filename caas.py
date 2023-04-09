@@ -25,7 +25,7 @@ class CaptionAnything():
         print('seg_mask path: ', mask_save_path)
         print("seg_mask.shape: ", seg_mask.shape)
         #  captioning with mask
-        caption = self.captioner.inference_seg(image, seg_mask, crop_mode=self.args.seg_crop_mode, filter=self.args.clip_filter)
+        caption = self.captioner.inference_seg(image, seg_mask, crop_mode=self.args.seg_crop_mode, filter=self.args.clip_filter, regular_box = self.args.regular_box)
         #  refining with TextRefiner
         context_captions = []
         if args.context_captions:
@@ -43,6 +43,7 @@ if __name__ == "__main__":
     parser.add_argument('--seg_crop_mode', type=str, default="w_bg", help="whether to add or remove background of the image when captioning")
     parser.add_argument('--clip_filter', action="store_true", help="use clip to filter bad captions")
     parser.add_argument('--context_captions', action="store_true", help="use surrounding captions to enhance current caption")
+    parser.add_argument('--regular_box', action="store_true", default = False, help="crop image with a regular box")
     parser.add_argument('--device', type=str, default="cuda:0")
     args = parser.parse_args()
     
