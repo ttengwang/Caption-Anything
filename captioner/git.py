@@ -12,8 +12,7 @@ class GITCaptioner(BaseCaptioner):
         self.device = device
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
         self.processor = AutoProcessor.from_pretrained("microsoft/git-large")
-        self.model = GitForCausalLM.from_pretrained(
-            "microsoft/git-large", torch_dtype=self.torch_dtype).to(self.device)
+        self.model = GitForCausalLM.from_pretrained("microsoft/git-large", torch_dtype=self.torch_dtype).to(self.device)
     
     @torch.no_grad()
     def inference(self, image: Union[np.ndarray, Image.Image, str], filter=False):
