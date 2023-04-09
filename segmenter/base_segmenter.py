@@ -24,7 +24,7 @@ class BaseSegmenter:
     def inference(self, image, control):
         # Implement segment anything
         if type(image) == str: # input path
-            image = cv2.imread('images/truck.jpg')
+            image = cv2.imread(image)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         
         if 'everything' in control['prompt_type']:
@@ -114,18 +114,13 @@ if __name__ == "__main__":
     init_time = time.time()
     segmenter = BaseSegmenter(
         device='cuda',
-        checkpoint='sam_vit_h_4b8939.pth',
+        # checkpoint='sam_vit_h_4b8939.pth',
+        checkpoint='segmenter/sam_vit_h_4b8939.pth',
         model_type='vit_h'
     )
     print(f'init time: {time.time() - init_time}')
     
     for i, prompt in enumerate(prompts):
         print(f'{prompt["prompt_type"]} mode')
-        
         masks = segmenter.inference(image_path, prompt)
         print(masks.shape)
-
-        
-            
-        
-    

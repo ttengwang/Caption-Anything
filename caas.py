@@ -1,24 +1,95 @@
 from captioner import build_captioner, BaseCaptioner
-from segmenter.base_segmenter import BaseSegmenter
-from text_refiner.text_refiner import TextRefiner
+from segmenter import build_segmenter
+from text_refiner import build_text_refiner
 import os
-os.environ['']
+import argparse
+import pdb
+import time
+from PIL import Image
 
 class CaptionAnything():
-    def __init__(self, 
-        captioner: BaseCaptioner,
-        segmenter: BaseSegmenter,
-        text_refiner: TextRefiner):
-        self.captioner = captioner
-        self.segmenter = segmenter
-        self.text_refiner = text_refiner
+    def __init__(self, args):
+        self.captioner = build_captioner(args.captioner, args.device, args)
+        self.segmenter = build_segmenter(args.segmenter, args.device, args)
+        self.text_refiner = build_text_refiner(args.text_refiner, args.device, args)
+        self.args = args
 
-
-    def __call__(self, image_path, prompt, controls):
-        # TODO segment with prompt
-        seg_mask = self.segmenter.inference(image_path, prompt)
-        # TODO captioning with mask
-        caption = self.captioner.inference_seg(image_path, seg_mask)
-        # TODO refine with TextRefiner
+    def inference(self, image_path, prompt, controls):
+        #  segment with prompt
+        seg_mask = self.segmenter.inference(image_path, prompt)[0, ...]
+        mask_save_path = f'result/mask_{time.time()}.png'
+        new_p = Image.fromarray(seg_mask.astype('int') * 255.)
+        if new_p.mode != 'RGB':
+            new_p = new_p.convert('RGB')
+        new_p.save(mask_save_path)
+        print('seg_mask path: ', mask_save_path)
+        print("seg_mask.shape: ", seg_mask.shape)
+        #  captioning with mask
+        caption = self.captioner.inference_seg(image_path, seg_mask, crop_mode=self.args.seg_crop_mode)
+        #  refining with TextRefiner
         refined_caption = self.text_refiner.inference(query=caption, controls=controls)
+        return refined_caption
+    
+    
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--captioner', type=str, default="blip")
+    parser.add_argument('--segmenter', type=str, default="base")
+    parser.add_argument('--text_refiner', type=str, default="base")
+    parser.add_argument('--segmenter_checkpoint', type=str, default="segmenter/sam_vit_h_4b8939.pth")
+    parser.add_argument('--seg_crop_mode', type=str, default="w_bg")
+    parser.add_argument('--device', type=str, default="cuda:0")    
+    args = parser.parse_args()
+    
+    image_path = 'test_img/img3.jpg'
+    prompts = [
+        {
+            "prompt_type":["click"],
+            "input_point":[[500, 300], [1000, 500]],
+            "input_label":[1, 0],
+            "multimask_output":"True",
+        },
+        {
+            "prompt_type":["click"],
+            "input_point":[[900, 800]],
+            "input_label":[1],
+            "multimask_output":"True",
+        }
+    ]
+    controls = {
+            "length": "30",
+            "sentiment": "positive",
+            # "imagination": "True",
+            "imagination": "False",
+            "language": "English",
+        }
+    model = CaptionAnything(args)
+    for prompt in prompts:
+        print('*'*30)
+        print('Image path: ', image_path)
+        image = Image.open(image_path)
+        print(image)
+        print('Visual controls (SAM prompt):\n', prompt)
+        print('Language controls:\n', controls)
+        caption = model.inference(image_path, prompt, controls)
+    
+    
+    # init_time = time.time()
+    # segmenter = BaseSegmenter(
+    #     device='cuda:0',
+    #     # checkpoint='sam_vit_h_4b8939.pth',
+    #     checkpoint='segmenter/sam_vit_h_4b8939.pth',
+    #     model_type='vit_h'
+    # )
+    # captioner = BLIPCaptioner(device='cuda:0')
+    # refiner = TextRefiner('cpu')
+    # print(f'init time: {time.time() - init_time}')
+
+    # for i, prompt in enumerate(prompts):
+    #     print(f'{prompt["prompt_type"]} mode')
+    #     seg_mask = segmenter.inference(image_path, prompt)[0, ...]
+    #     print("seg_mask.shape: ", seg_mask.shape)
+    #     caption = captioner.inference_seg(image_path, seg_mask)
+        
+    #     refiner.inference(query=caption, controls=controls)
 

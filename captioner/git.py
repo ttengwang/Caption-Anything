@@ -1,7 +1,7 @@
 from transformers import GitForCausalLM, GitProcessor, AutoProcessor
 from PIL import Image
 import torch
-from base_captioner import BaseCaptioner
+from .base_captioner import BaseCaptioner
 import numpy as np
 from typing import Union
 

@@ -6,7 +6,7 @@ import pdb
 import cv2
 import numpy as np
 from typing import Union
-from base_captioner import BaseCaptioner
+from .base_captioner import BaseCaptioner
 
 
 class BLIPCaptioner(BaseCaptioner):

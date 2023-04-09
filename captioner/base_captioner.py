@@ -6,6 +6,7 @@ import pdb
 import cv2
 import numpy as np
 from typing import Union
+import time
 
 def seg_to_box(seg_mask: Union[np.ndarray, Image.Image, str]):
     if type(seg_mask) == str:
@@ -17,16 +18,28 @@ def seg_to_box(seg_mask: Union[np.ndarray, Image.Image, str]):
         if seg_mask.dtype == 'bool':
             seg_mask = seg_mask * 255
     contours, hierarchy = cv2.findContours(seg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    rect = cv2.minAreaRect(contours[0])
+    contours = np.concatenate(contours, axis=0)
+    rect = cv2.minAreaRect(contours)
     box = cv2.boxPoints(rect)
     box = np.int0(box)
     return box
 
+def get_w_h(rect_points):
+    w = np.linalg.norm(rect_points[0] - rect_points[1], ord=2).astype('int')
+    h = np.linalg.norm(rect_points[0] - rect_points[3], ord=2).astype('int')
+    return w, h
+    
 def cut_box(img, rect_points):
-    dst_pts = np.array([[img.shape[1], img.shape[0]], [0, img.shape[0]], [0, 0], [img.shape[1], 0]], dtype="float32")    
+    w, h = get_w_h(rect_points)
+    dst_pts = np.array([[w, h], [0, h], [0, 0], [w, 0]], dtype="float32") 
+    # dst_pts = np.array([[img.shape[1], img.shape[0]], [0, img.shape[0]], [0, 0], [img.shape[1], 0]], dtype="float32")    
     # dst_pts = np.array([[0, 0], [0, img.shape[0]], [img.shape[1], img.shape[0]], [img.shape[1], 0]], dtype="float32")
     transform = cv2.getPerspectiveTransform(rect_points.astype("float32"), dst_pts)
-    cropped_img = cv2.warpPerspective(img, transform, (img.shape[1], img.shape[0]))
+    # cropped_img = cv2.warpPerspective(img, transform, (img.shape[1], img.shape[0]))
+    
+    # pdb.set_trace()
+
+    cropped_img = cv2.warpPerspective(img, transform, (w, h))
     return cropped_img
     
 class BaseCaptioner:
@@ -53,11 +66,12 @@ class BaseCaptioner:
         elif np.array(box).size == 8: # four corners of an irregular rectangle
             image_crop = cut_box(np.array(image), box)
 
-        Image.fromarray(image_crop).save('result/crop.png')
-        print('croped image saved in result/crop.png')
+        crop_save_path = f'result/crop_{time.time()}.png'
+        Image.fromarray(image_crop).save(crop_save_path)
+        print(f'croped image saved in {crop_save_path}')
         return self.inference(image_crop)
 
-    def inference_seg(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str]):
+    def inference_seg(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str], crop_mode="w_bg"):
         if type(image) == str:
             image = Image.open(image)
         if type(seg_mask) == str:
@@ -66,9 +80,14 @@ class BaseCaptioner:
             seg_mask = Image.fromarray(seg_mask)
         seg_mask = seg_mask.resize(image.size)
         seg_mask = np.array(seg_mask) > 0
-        seg_no_background = np.array(image) * seg_mask[:,:,np.newaxis]
+        
+        if crop_mode=="wo_bg":
+            image = np.array(image) * seg_mask[:,:,np.newaxis]
+        else:
+            image = np.array(image)
+            
         min_area_box = seg_to_box(seg_mask)
-        return self.inference_box(seg_no_background, min_area_box)
+        return self.inference_box(image, min_area_box)
 
         
 if __name__ == '__main__':

@@ -1,10 +1,10 @@
-from blip import BLIPCaptioner
-from blip2 import BLIP2Captioner
-from git import GITCaptioner
-from base_captioner import BaseCaptioner
+from .blip import BLIPCaptioner
+from .blip2 import BLIP2Captioner
+from .git import GITCaptioner
+from .base_captioner import BaseCaptioner
 
 
-def build_captioner(type, device):
+def build_captioner(type, device, args=None):
     if type == 'blip':
         return BLIPCaptioner(device)
     elif type == 'blip2':
