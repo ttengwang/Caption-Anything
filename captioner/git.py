@@ -22,6 +22,10 @@ class GITCaptioner(BaseCaptioner):
         pixel_values = self.processor(images=image, return_tensors="pt").pixel_values.to(self.device, self.torch_dtype)
         generated_ids = self.model.generate(pixel_values=pixel_values, max_new_tokens=50)
         generated_caption = self.processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+        similarity = self.filter_caption(image, generated_caption)
+        if similarity < self.threshold:
+            print('There seems to be nothing where you clicked.')
+            return ''
         print(f"\nProcessed ImageCaptioning by GITCaptioner, Output Text: {generated_caption}")
         return generated_caption
 

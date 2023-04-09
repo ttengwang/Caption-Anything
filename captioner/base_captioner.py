@@ -6,6 +6,7 @@ import pdb
 import cv2
 import numpy as np
 from typing import Union
+import clip
 
 def seg_to_box(seg_mask: Union[np.ndarray, Image.Image, str]):
     if type(seg_mask) == str:
@@ -36,6 +37,25 @@ class BaseCaptioner:
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
         self.processor = None
         self.model = None
+        self.filter, self.preprocess = clip.load('ViT-B/32', device)
+        self.threshold = 0.2
+
+    @torch.no_grad()
+    def filter_caption(self, image: Union[np.ndarray, Image.Image, str], caption: str):
+ 
+        if type(image) == str: # input path
+            image = Image.open(image)
+        elif type(image) == np.ndarray:
+            image = Image.fromarray(image)
+ 
+        image = self.preprocess(image).unsqueeze(0).to(self.device) # (1, 3, 224, 224)
+        text = clip.tokenize(caption).to(self.device)               # (1, 77)
+        image_features = self.filter.encode_image(image) # (1, 512)
+        text_features = self.filter.encode_text(text)    # (1, 512)
+        image_features /= image_features.norm(dim = -1, keepdim = True)
+        text_features /= text_features.norm(dim = -1, keepdim = True)
+        similarity = torch.matmul(image_features, text_features.transpose(1, 0))
+        return similarity.item()
 
     def inference(self, image: Union[np.ndarray, Image.Image, str]):
         raise NotImplementedError()
