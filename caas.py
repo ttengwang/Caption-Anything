@@ -18,6 +18,8 @@ class CaptionAnything():
         #  segment with prompt
         seg_mask = self.segmenter.inference(image, prompt)[0, ...]
         mask_save_path = f'result/mask_{time.time()}.png'
+        if not os.path.exists(os.path.dirname(mask_save_path)):
+            os.makedirs(os.path.dirname(mask_save_path))
         new_p = Image.fromarray(seg_mask.astype('int') * 255.)
         if new_p.mode != 'RGB':
             new_p = new_p.convert('RGB')
