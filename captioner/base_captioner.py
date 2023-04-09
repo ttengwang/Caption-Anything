@@ -22,12 +22,9 @@ def seg_to_box(seg_mask: Union[np.ndarray, Image.Image, str]):
     contours = np.concatenate(contours, axis=0)
     rect = cv2.minAreaRect(contours)
     box = cv2.boxPoints(rect)
-    if rect[-1] >= 45:
-        box.argmin(axis=0)
-        
-
+    # if rect[-1] >= 45:
+    #     box.argmin(axis=0)
     box = np.int0(box)
-    pdb.set_trace()
     return box
 
 def get_w_h(rect_points):
