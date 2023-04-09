@@ -22,8 +22,11 @@ def seg_to_box(seg_mask: Union[np.ndarray, Image.Image, str]):
     contours = np.concatenate(contours, axis=0)
     rect = cv2.minAreaRect(contours)
     box = cv2.boxPoints(rect)
-    # if rect[-1] >= 45:
-    #     box.argmin(axis=0)
+    if rect[-1] >= 45:
+        newstart = box.argmin(axis=0)[1] # leftmost
+    else:
+        newstart = box.argmax(axis=0)[0] # topmost
+    box = np.concatenate([box[newstart:], box[:newstart]], axis=0)
     box = np.int0(box)
     return box
 
@@ -34,9 +37,10 @@ def get_w_h(rect_points):
     
 def cut_box(img, rect_points):
     w, h = get_w_h(rect_points)
-    dst_pts = np.array([[w, h], [0, h], [0, 0], [w, 0]], dtype="float32")
+    # dst_pts = np.array([[w, h], [0, h], [0, 0], [w, 0]], dtype="float32")
+    dst_pts = np.array([[h, 0], [h, w], [0, w], [0, 0],], dtype="float32")
     transform = cv2.getPerspectiveTransform(rect_points.astype("float32"), dst_pts)
-    cropped_img = cv2.warpPerspective(img, transform, (w, h))
+    cropped_img = cv2.warpPerspective(img, transform, (h, w))
     return cropped_img
     
 class BaseCaptioner:

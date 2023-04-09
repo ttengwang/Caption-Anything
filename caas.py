@@ -42,7 +42,8 @@ if __name__ == "__main__":
     parser.add_argument('--device', type=str, default="cuda:0")    
     args = parser.parse_args()
     
-    image_path = 'test_img/img3.jpg'
+    # image_path = 'test_img/img3.jpg'
+    image_path = 'test_img/img13.jpg'
     prompts = [
         {
             "prompt_type":["click"],
