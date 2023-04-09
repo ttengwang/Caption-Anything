@@ -32,11 +32,14 @@ class CaptionAnything():
         context_captions = []
         if self.args.context_captions:
             context_captions.append(self.captioner.inference(image))
-        refined_caption = self.text_refiner.inference(query=caption, controls=controls, context=context_captions)
+        if self.args.disable_gpt:
+            refined_caption = {'raw_caption': caption}
+        else:
+            refined_caption = self.text_refiner.inference(query=caption, controls=controls, context=context_captions)                
         out = {'generated_captions': refined_caption,
-               'crop_save_path': crop_save_path,
-               'mask_save_path': mask_save_path,
-               'context_captions': context_captions}
+            'crop_save_path': crop_save_path,
+            'mask_save_path': mask_save_path,
+            'context_captions': context_captions}
         return out
     
 def parse_augment():
@@ -53,6 +56,7 @@ def parse_augment():
     parser.add_argument('--port', type=int, default=6086, help="only useful when running gradio applications")  
     parser.add_argument('--debug', action="store_true")
     parser.add_argument('--gradio_share', action="store_true")
+    parser.add_argument('--disable_gpt', action="store_true")
     args = parser.parse_args()
 
     if args.debug:
