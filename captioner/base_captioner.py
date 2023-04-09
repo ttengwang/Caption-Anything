@@ -23,6 +23,7 @@ def seg_to_box(seg_mask: Union[np.ndarray, Image.Image, str]):
     rect = cv2.minAreaRect(contours)
     box = cv2.boxPoints(rect)
     box = np.int0(box)
+    pdb.set_trace()
     return box
 
 def get_w_h(rect_points):
@@ -32,14 +33,8 @@ def get_w_h(rect_points):
     
 def cut_box(img, rect_points):
     w, h = get_w_h(rect_points)
-    dst_pts = np.array([[w, h], [0, h], [0, 0], [w, 0]], dtype="float32") 
-    # dst_pts = np.array([[img.shape[1], img.shape[0]], [0, img.shape[0]], [0, 0], [img.shape[1], 0]], dtype="float32")    
-    # dst_pts = np.array([[0, 0], [0, img.shape[0]], [img.shape[1], img.shape[0]], [img.shape[1], 0]], dtype="float32")
+    dst_pts = np.array([[w, h], [0, h], [0, 0], [w, 0]], dtype="float32")
     transform = cv2.getPerspectiveTransform(rect_points.astype("float32"), dst_pts)
-    # cropped_img = cv2.warpPerspective(img, transform, (img.shape[1], img.shape[0]))
-    
-    # pdb.set_trace()
-
     cropped_img = cv2.warpPerspective(img, transform, (w, h))
     return cropped_img
     
