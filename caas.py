@@ -25,16 +25,19 @@ class CaptionAnything():
         print('seg_mask path: ', mask_save_path)
         print("seg_mask.shape: ", seg_mask.shape)
         #  captioning with mask
-        caption = self.captioner.inference_seg(image, seg_mask, crop_mode=self.args.seg_crop_mode, filter=self.args.clip_filter)
+        caption, crop_save_path = self.captioner.inference_seg(image, seg_mask, crop_mode=self.args.seg_crop_mode, filter=self.args.clip_filter)
         #  refining with TextRefiner
         context_captions = []
-        if args.context_captions:
+        if self.args.context_captions:
             context_captions.append(self.captioner.inference(image))
         refined_caption = self.text_refiner.inference(query=caption, controls=controls, context=context_captions)
-        return refined_caption
+        out = {'generated_captions': refined_caption,
+               'crop_save_path': crop_save_path,
+               'mask_save_path': mask_save_path,
+               'context_captions': context_captions}
+        return out
     
-
-if __name__ == "__main__":
+def parse_augment():
     parser = argparse.ArgumentParser()
     parser.add_argument('--captioner', type=str, default="blip")
     parser.add_argument('--segmenter', type=str, default="base")
@@ -44,8 +47,16 @@ if __name__ == "__main__":
     parser.add_argument('--clip_filter', action="store_true", help="use clip to filter bad captions")
     parser.add_argument('--context_captions', action="store_true", help="use surrounding captions to enhance current caption")
     parser.add_argument('--device', type=str, default="cuda:0")
+    parser.add_argument('--port', type=int, default=6086, help="only useful when running gradio applications")  
+    parser.add_argument('--debug', action="store_true")  
     args = parser.parse_args()
-    
+
+    if args.debug:
+        print(args)
+    return args
+
+if __name__ == "__main__":
+    args = parse_augment()
     # image_path = 'test_img/img3.jpg'
     image_path = 'test_img/img13.jpg'
     prompts = [
@@ -78,6 +89,6 @@ if __name__ == "__main__":
         print(image)
         print('Visual controls (SAM prompt):\n', prompt)
         print('Language controls:\n', controls)
-        caption = model.inference(image_path, prompt, controls)
+        out = model.inference(image_path, prompt, controls)
     
     

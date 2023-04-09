@@ -7,6 +7,7 @@ import torch
 import json
 import sys
 import argparse
+from caas import parse_augment
 
 title = """<h1 align="center">Caption-Anything</h1>"""
 description = """Gradio demo for Caption Anything, image to dense captioning generation with various language styles. To use it, simply upload your image, or click one of the examples to load them.
@@ -14,19 +15,10 @@ description = """Gradio demo for Caption Anything, image to dense captioning gen
 """
 
 examples = [
-    ["test_img/img2.jpg", "hi"]
+    ["test_img/img2.jpg", "[[1000, 700, 1]]"]
 ]
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--captioner', type=str, default="blip")
-parser.add_argument('--segmenter', type=str, default="base")
-parser.add_argument('--text_refiner', type=str, default="base")
-parser.add_argument('--segmenter_checkpoint', type=str, default="segmenter/sam_vit_h_4b8939.pth")
-parser.add_argument('--seg_crop_mode', type=str, default="w_bg", help="whether to add or remove background of the image when captioning")
-parser.add_argument('--clip_filter', action="store_true", help="use clip to filter bad captions")
-parser.add_argument('--device', type=str, default="cuda:0")    
-parser.add_argument('--port', type=int, default=6086)    
-args = parser.parse_args()
+args = parse_augment()
 
 # args = type('args', (object,), {})()
 # args.captioner='blip'
@@ -38,6 +30,7 @@ args = parser.parse_args()
 # args.device = "cuda" if torch.cuda.is_available() else "cpu"
 
 model = CaptionAnything(args)
+# model = None
 
 def get_prompt(chat_input, click_state):    
     points = click_state[0]
@@ -62,11 +55,22 @@ def inference_seg_cap(image_input, chat_input, language, sentiment, factuality, 
              'language': language}
     prompt = get_prompt(chat_input, click_state)
     print('prompt: ', prompt, 'controls: ', controls)
-    text_dict = model.inference(image_input, prompt, controls)
-    chatbot = state + [(text_dict['raw_caption'], None), (text_dict['caption'], None), (text_dict['caption'], None)]
-    return chatbot, chatbot, click_state
+    out = model.inference(image_input, prompt, controls)
+    chatbot = state + [
+        ('raw caption: ' + out['generated_captions']['raw_caption'], None), 
+        ('caption: ' + out['generated_captions']['caption'], None), 
+        ('wiki:' + out['generated_captions']['wiki'], None)
+        ]
+    image_output_mask = out['mask_save_path']
+    image_output_crop = out['crop_save_path']
+    return chatbot, chatbot, click_state, image_output_mask, image_output_crop
 
-    
+
+def upload_callback(image_input, state):
+    state = state + [('Image size: ' + str(image_input.size), None)]
+    return state
+
+
 with gr.Blocks(
     css="""
     .message.svelte-w6rprc.svelte-w6rprc.svelte-w6rprc {font-size: 20px; margin-top: 20px}
@@ -80,25 +84,25 @@ with gr.Blocks(
     gr.Markdown(description)
 
     with gr.Row():
-        with gr.Column(scale=1):
-            image_input = gr.Image(type="pil", interactive=True).style(height=260,scale=1.0)
+        with gr.Column(scale=0.7):
+            image_input = gr.Image(type="pil", interactive=True, onchange=upload_callback).style(height=260,scale=1.0)
 
             # with gr.Row():
             language = gr.Radio(
                 choices=["English", "Chinese", "French", "Spanish", "Arabic", "Portuguese","Cantonese"],
-                value="Language",
+                value="English",
                 label="Language",
                 interactive=True,
             )
             sentiment = gr.Radio(
                 choices=["Positive", "Negative"],
-                value="Sentiment",
+                value="Positive",
                 label="Sentiment",
                 interactive=True,
             )
             factuality = gr.Radio(
                 choices=["Factual", "Imagination"],
-                value="Factuality",
+                value="Factual",
                 label="Factuality",
                 interactive=True,
             )
@@ -113,7 +117,9 @@ with gr.Blocks(
 
         with gr.Column(scale=1.5):
             with gr.Row():
-                chatbot = gr.Chatbot(label="Chat Output",).style(height=500,scale=0.5)
+                image_output_mask= gr.Image(type="pil", interactive=False).style(height=260,scale=1.0)
+                image_output_crop= gr.Image(type="pil", interactive=False).style(height=260,scale=1.0)
+            chatbot = gr.Chatbot(label="Chat Output",).style(height=500,scale=0.5)
             with gr.Row():
             # with gr.Column(scale=1):
                 chat_input = gr.Textbox(lines=1, label="Chat Input")
@@ -129,23 +135,29 @@ with gr.Blocks(
                         state,
                         click_state
                     ],
-                    [chatbot, state, click_state],
+                    [chatbot, state, click_state, image_output_mask, image_output_crop],
                 )
+                
+                image_input.upload(
+                    upload_callback,
+                    [image_input, state],
+                    [chatbot]
+                    )
 
                 with gr.Row():
                     clear_button = gr.Button(value="Clear Click", interactive=True)
                     clear_button.click(
-                        lambda: ("", [], [], [[], []]),
+                        lambda: ("", [[], []], [], []),
                         [],
-                        [chat_input, chatbot, state, click_state],
+                        [chat_input, click_state, image_output_mask, image_output_crop],
                         queue=False,
                     )
                     
                     clear_button = gr.Button(value="Clear", interactive=True)
                     clear_button.click(
-                        lambda: ("", [], [], [[], []]),
+                        lambda: ("", [], [], [[], []], [], []),
                         [],
-                        [chat_input, chatbot, state, click_state],
+                        [chat_input, chatbot, state, click_state, image_output_mask, image_output_crop],
                         queue=False,
                     )
 
@@ -164,7 +176,7 @@ with gr.Blocks(
                             state,
                             click_state
                         ],
-                        [chatbot, state],
+                        [chatbot, state, click_state, image_output_mask, image_output_crop],
                     )
 
             image_input.change(

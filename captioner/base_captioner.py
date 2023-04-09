@@ -131,8 +131,8 @@ class BaseCaptioner:
         crop_save_path = f'result/crop_{time.time()}.png'
         Image.fromarray(image_crop).save(crop_save_path)
         print(f'croped image saved in {crop_save_path}')
-        caption = self.inference(image_crop, filter)         
-        return caption
+        caption = self.inference(image_crop, filter)
+        return caption, crop_save_path
         
 
     def inference_seg(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str], crop_mode="w_bg", filter=False):
