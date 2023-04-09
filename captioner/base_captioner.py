@@ -37,7 +37,6 @@ def get_w_h(rect_points):
     
 def cut_box(img, rect_points):
     w, h = get_w_h(rect_points)
-    # dst_pts = np.array([[w, h], [0, h], [0, 0], [w, 0]], dtype="float32")
     dst_pts = np.array([[h, 0], [h, w], [0, w], [0, 0],], dtype="float32")
     transform = cv2.getPerspectiveTransform(rect_points.astype("float32"), dst_pts)
     cropped_img = cv2.warpPerspective(img, transform, (h, w))
