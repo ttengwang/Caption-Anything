@@ -20,7 +20,7 @@ Caption-Anything supports both visual controls and textual controls:
 # RUN
 ```
 # (optional) set transformer cache dir
-export HF_HOME=/your/path/to/cache/huggingface/ 
+export HUGGINGFACE_HUB_CACHE=/your/path/to/cache/
 
 # set openai api key
 export OPENAI_API_KEY={Your_Private_Openai_Key}

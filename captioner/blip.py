@@ -12,25 +12,22 @@ import torchvision.transforms.functional as F
 
 
 class BLIPCaptioner(BaseCaptioner):
-    def __init__(self, device):
-        super().__init__(device)
+    def __init__(self, device, enable_filter=False):
+        super().__init__(device, enable_filter)
         self.device = device
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
-        self.processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large", cache_dir='.cache')
-        self.model = BlipForConditionalGeneration.from_pretrained(
-            "Salesforce/blip-image-captioning-large", torch_dtype=self.torch_dtype, cache_dir='.cache').to(self.device)
+        self.processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
+        self.model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large", torch_dtype=self.torch_dtype).to(self.device)
         
     @torch.no_grad()
-    def inference(self, image: Union[np.ndarray, Image.Image, str]):
+    def inference(self, image: Union[np.ndarray, Image.Image, str], filter=False):
         if type(image) == str: # input path
                 image = Image.open(image)
         inputs = self.processor(image, return_tensors="pt").to(self.device, self.torch_dtype)
         out = self.model.generate(**inputs, max_new_tokens=50)
         captions = self.processor.decode(out[0], skip_special_tokens=True)
-        similarity = self.filter_caption(image, captions)
-        if similarity < self.threshold:
-            print('There seems to be nothing where you clicked.')
-            return ''
+        if self.enable_filter and filter:
+            captions = self.filter_caption(image, captions)
         print(f"\nProcessed ImageCaptioning by BLIPCaptioner, Output Text: {captions}")
         return captions
     

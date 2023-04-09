@@ -9,20 +9,16 @@ from typing import Union
 from .base_captioner import BaseCaptioner
 
 class BLIP2Captioner(BaseCaptioner):
-    def __init__(self, device, dialogue: bool = False, cache_dir = None):
+    def __init__(self, device, dialogue: bool = False):
         super().__init__(device)
         self.device = device
         self.dialogue = dialogue
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
-        if cache_dir is not None:
-            self.processor = AutoProcessor.from_pretrained("Salesforce/blip2-opt-2.7b", cache_dir = cache_dir)
-            self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b", cache_dir = cache_dir, torch_dtype = self.torch_dtype).to(device)
-        else:
-            self.processor = AutoProcessor.from_pretrained("Salesforce/blip2-opt-2.7b")
-            self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b", torch_dtype = self.torch_dtype).to(device)
+        self.processor = AutoProcessor.from_pretrained("Salesforce/blip2-opt-2.7b")
+        self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b", torch_dtype = self.torch_dtype).to(device)
         
     @torch.no_grad()
-    def inference(self, image: Union[np.ndarray, Image.Image, str]):
+    def inference(self, image: Union[np.ndarray, Image.Image, str], filter=False):
         if type(image) == str: # input path
                 image = Image.open(image)
 
@@ -30,10 +26,8 @@ class BLIP2Captioner(BaseCaptioner):
             inputs = self.processor(image, return_tensors="pt").to(self.device, self.torch_dtype)
             out = self.model.generate(**inputs, max_new_tokens=50)
             captions = self.processor.decode(out[0], skip_special_tokens=True)
-            similarity = self.filter_caption(image, captions)
-            if similarity < self.threshold:
-                print('There seems to be nothing where you clicked.')
-                return ''
+            if self.enable_filter and filter:
+                captions = self.filter_caption(image, captions)
             print(f"\nProcessed ImageCaptioning by BLIP2Captioner, Output Text: {captions}")
             return captions
         else:

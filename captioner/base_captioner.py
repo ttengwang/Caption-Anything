@@ -74,13 +74,15 @@ def cut_box(img, rect_points):
     return cropped_img
     
 class BaseCaptioner:
-    def __init__(self, device):
+    def __init__(self, device, enable_filter=False):
         print(f"Initializing ImageCaptioning to {device}")
         self.device = device
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
         self.processor = None
         self.model = None
-        self.filter, self.preprocess = clip.load('ViT-B/32', device)
+        self.enable_filter = enable_filter
+        if enable_filter:
+            self.filter, self.preprocess = clip.load('ViT-B/32', device)
         self.threshold = 0.2
 
     @torch.no_grad()
@@ -97,10 +99,20 @@ class BaseCaptioner:
         text_features = self.filter.encode_text(text)    # (1, 512)
         image_features /= image_features.norm(dim = -1, keepdim = True)
         text_features /= text_features.norm(dim = -1, keepdim = True)
-        similarity = torch.matmul(image_features, text_features.transpose(1, 0))
-        return similarity.item()
+        similarity = torch.matmul(image_features, text_features.transpose(1, 0)).item()
+        if similarity < self.threshold:
+            print('There seems to be nothing where you clicked.')
+            out = ""
+        else:
+            out = caption
+        print(f'Clip score of the caption is {similarity}')
+        return out
 
-    def inference(self, image: Union[np.ndarray, Image.Image, str]):
+        
+    def inference(self, image: Union[np.ndarray, Image.Image, str], filter: bool=False):
+        raise NotImplementedError()
+    
+    def inference_with_reduced_tokens(self, image: Union[np.ndarray, Image.Image, str], seg_mask):
         raise NotImplementedError()
     
     def inference_box(self, image: Union[np.ndarray, Image.Image, str], box: Union[list, np.ndarray], filter=False):
@@ -119,19 +131,11 @@ class BaseCaptioner:
         crop_save_path = f'result/crop_{time.time()}.png'
         Image.fromarray(image_crop).save(crop_save_path)
         print(f'croped image saved in {crop_save_path}')
-        caption = self.inference(image_crop)
-        
-        if filter:
-            clip_score = self.filter_caption(image_crop, caption)
-            print(f'filtering caption: {caption}, clip_score: {clip_score}')
-            if clip_score > self.threshold:
-                return caption
-            else:
-                return 'N/A'            
+        caption = self.inference(image_crop, filter)         
         return caption
         
 
-    def inference_seg(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str], crop_mode="w_bg", filter=False):
+    def inference_seg(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str], crop_mode="w_bg", filter=False, regular_box = False):
         if type(image) == str:
             image = Image.open(image)
         if type(seg_mask) == str:
@@ -145,8 +149,11 @@ class BaseCaptioner:
             image = np.array(image) * seg_mask[:,:,np.newaxis]
         else:
             image = np.array(image)
-            
-        min_area_box = seg_to_box(seg_mask)
+
+        if regular_box:
+            min_area_box = new_seg_to_box(seg_mask)
+        else:
+            min_area_box = seg_to_box(seg_mask)
         return self.inference_box(image, min_area_box, filter)
         
 
