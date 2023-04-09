@@ -29,5 +29,6 @@ export OPENAI_API_KEY={Your_Private_Openai_Key}
 export OPENAI_API_BASE=https://openai.1rmb.tk/v1/
 
 # run caption-anything model
-python caas.py
+python caas.py 
+python caas.py --seg_crop_mode wo_bg --clip_filter # remove the background pixels for captioning, remove bad captions via clip filter
 ```
