@@ -13,21 +13,18 @@ class GITCaptioner(BaseCaptioner):
         super().__init__(device, enable_filter)
         self.device = device
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
-        self.processor = AutoProcessor.from_pretrained("microsoft/git-base")
-        self.model = GitForCausalLM.from_pretrained(
-            "microsoft/git-base", torch_dtype=self.torch_dtype).to(self.device)
+        self.processor = AutoProcessor.from_pretrained("microsoft/git-large")
+        self.model = GitForCausalLM.from_pretrained("microsoft/git-large", torch_dtype=self.torch_dtype).to(self.device)
     
     @torch.no_grad()
-    def inference(self, image: Union[np.ndarray, Image.Image, str]):
+    def inference(self, image: Union[np.ndarray, Image.Image, str], filter=False):
         if type(image) == str: # input path
             image = Image.open(image)
         pixel_values = self.processor(images=image, return_tensors="pt").pixel_values.to(self.device, self.torch_dtype)
         generated_ids = self.model.generate(pixel_values=pixel_values, max_new_tokens=50)
         generated_caption = self.processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
-        similarity = self.filter_caption(image, generated_caption)
-        if similarity < self.threshold:
-            print('There seems to be nothing where you clicked.')
-            return ''
+        if self.enable_filter and filter:
+            captions = self.filter_caption(image, captions)
         print(f"\nProcessed ImageCaptioning by GITCaptioner, Output Text: {generated_caption}")
         return generated_caption
 

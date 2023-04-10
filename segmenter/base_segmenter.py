@@ -21,7 +21,8 @@ class BaseSegmenter:
 
         self.predictor = SamPredictor(self.model)
         self.mask_generator = SamAutomaticMaskGenerator(self.model)
-        
+    
+    @torch.no_grad()
     def inference(self, image, control):
         # Implement segment anything
         if type(image) == str: # input path

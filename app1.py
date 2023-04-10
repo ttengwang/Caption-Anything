@@ -8,6 +8,7 @@ import json
 import sys
 import argparse
 from caas import parse_augment
+import numpy as np
 
 title = """<h1 align="center">Caption-Anything</h1>"""
 description = """Gradio demo for Caption Anything, image to dense captioning generation with various language styles. To use it, simply upload your image, or click one of the examples to load them.
@@ -56,12 +57,14 @@ def inference_seg_cap(image_input, chat_input, language, sentiment, factuality, 
     prompt = get_prompt(chat_input, click_state)
     print('prompt: ', prompt, 'controls: ', controls)
     out = model.inference(image_input, prompt, controls)
-    state = state + [(None, "Image point: {}, Input label: {}".format(prompt["input_point"], prompt["input_label"]))]
-    for k, v in out['generated_captions'].items():
-        state = state + [(f'{k}: {v}', None)]
+    chatbot = state + [
+        ('raw caption: ' + out['generated_captions']['raw_caption'], None), 
+        ('caption: ' + out['generated_captions']['caption'], None), 
+        ('wiki:' + out['generated_captions']['wiki'], None)
+        ]
     image_output_mask = out['mask_save_path']
     image_output_crop = out['crop_save_path']
-    return state, state, click_state, image_output_mask, image_output_crop
+    return chatbot, chatbot, click_state, image_output_mask, image_output_crop
 
 
 def upload_callback(image_input, state):
@@ -69,14 +72,12 @@ def upload_callback(image_input, state):
     return state
 
 # get coordinate in format [[x,y,positive/negative]]
-def get_select_coords(image_input, point_prompt, language, sentiment, factuality, length, state, click_state, evt: gr.SelectData):
-        print("point_prompt: ", point_prompt)
-        if point_prompt == 'Positive Point':
-            coordinate = "[[{}, {}, 1]]".format(str(evt.index[0]), str(evt.index[1]))
-        else:
-            coordinate = "[[{}, {}, 0]]".format(str(evt.index[0]), str(evt.index[1]))
-            
-        return (coordinate,) + inference_seg_cap(image_input, coordinate, language, sentiment, factuality, length, state, click_state)
+def get_select_coords(image_input: gr.Image, evt: gr.SelectData):
+
+        coordinate = "[[{}, {}, 1]]".format(str(evt.index[0]), str(evt.index[1]))
+        out = image_input.copy() * 0.2
+        out = out.astype(np.uint8)
+        return coordinate, out
 
 
 with gr.Blocks(
@@ -93,16 +94,8 @@ with gr.Blocks(
 
     with gr.Row():
         with gr.Column(scale=0.7):
-            image_input = gr.Image(type="pil", interactive=True, label="Image").style(height=260,scale=1.0)
+            image_input = gr.Image(type="pil", interactive=True, onchange=upload_callback).style(height=260,scale=1.0)
 
-            with gr.Row(scale=0.7):
-                point_prompt = gr.Radio(
-                    choices=["Positive Point",  "Negative Point"],
-                    value="Positive",
-                    label="Points",
-                    interactive=True,
-                )
-            
             # with gr.Row():
             language = gr.Radio(
                 choices=["English", "Chinese", "French", "Spanish", "Arabic", "Portuguese","Cantonese"],
@@ -111,8 +104,8 @@ with gr.Blocks(
                 interactive=True,
             )
             sentiment = gr.Radio(
-                choices=["Positive", "Natural", "Negative"],
-                value="Natural",
+                choices=["Positive", "Negative"],
+                value="Positive",
                 label="Sentiment",
                 interactive=True,
             )
@@ -133,12 +126,12 @@ with gr.Blocks(
 
         with gr.Column(scale=1.5):
             with gr.Row():
-                image_output_mask= gr.Image(type="pil", interactive=False, label="Mask").style(height=260,scale=1.0)
-                image_output_crop= gr.Image(type="pil", interactive=False, label="Cropped Image by Mask").style(height=260,scale=1.0)
+                image_output_mask= gr.Image(type="pil", interactive=False).style(height=260,scale=1.0)
+                image_output_crop= gr.Image(type="pil", interactive=False).style(height=260,scale=1.0)
             chatbot = gr.Chatbot(label="Chat Output",).style(height=500,scale=0.5)
             with gr.Row():
             # with gr.Column(scale=1):
-                chat_input = gr.Textbox(lines=1, label="Input Prompt (A list of points lke : [[100, 200, 1], [200,300,0]])")
+                chat_input = gr.Textbox(lines=1, label="Chat Input")
                 chat_input.submit(
                     inference_seg_cap,
                     [
@@ -163,7 +156,7 @@ with gr.Blocks(
                 with gr.Row():
                     clear_button = gr.Button(value="Clear Click", interactive=True)
                     clear_button.click(
-                        lambda: ("", [[], []], None, None),
+                        lambda: ("", [[], []], [], []),
                         [],
                         [chat_input, click_state, image_output_mask, image_output_crop],
                         queue=False,
@@ -171,7 +164,7 @@ with gr.Blocks(
                     
                     clear_button = gr.Button(value="Clear", interactive=True)
                     clear_button.click(
-                        lambda: ("", [], [], [[], []], None, None),
+                        lambda: ("", [], [], [[], []], [], []),
                         [],
                         [chat_input, chatbot, state, click_state, image_output_mask, image_output_crop],
                         queue=False,
@@ -196,11 +189,8 @@ with gr.Blocks(
                     )
 
             # select coordinate
-            image_input.select(
-                get_select_coords, 
-                inputs=[image_input,point_prompt,language,sentiment,factuality,length,state,click_state], 
-                outputs=[chat_input, chatbot, state, click_state, image_output_mask, image_output_crop]
-                )
+            image_input.select(get_select_coords, inputs=image_input,outputs=[chat_input, image_input])
+        
 
             image_input.change(
                 lambda: ("", [], [[], []]),

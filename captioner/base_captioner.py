@@ -99,10 +99,17 @@ class BaseCaptioner:
         text_features = self.filter.encode_text(text)    # (1, 512)
         image_features /= image_features.norm(dim = -1, keepdim = True)
         text_features /= text_features.norm(dim = -1, keepdim = True)
-        similarity = torch.matmul(image_features, text_features.transpose(1, 0))
-        return similarity.item()
+        similarity = torch.matmul(image_features, text_features.transpose(1, 0)).item()
+        if similarity < self.threshold:
+            print('There seems to be nothing where you clicked.')
+            out = ""
+        else:
+            out = caption
+        print(f'Clip score of the caption is {similarity}')
+        return out
 
-    def inference(self, image: Union[np.ndarray, Image.Image, str]):
+        
+    def inference(self, image: Union[np.ndarray, Image.Image, str], filter: bool=False):
         raise NotImplementedError()
     
     def inference_with_reduced_tokens(self, image: Union[np.ndarray, Image.Image, str], seg_mask):
@@ -124,19 +131,11 @@ class BaseCaptioner:
         crop_save_path = f'result/crop_{time.time()}.png'
         Image.fromarray(image_crop).save(crop_save_path)
         print(f'croped image saved in {crop_save_path}')
-        caption = self.inference(image_crop)
-        
-        if self.enable_filter:
-            clip_score = self.filter_caption(image_crop, caption)
-            print(f'filtering caption: {caption}, clip_score: {clip_score}')
-            if clip_score > self.threshold:
-                return caption
-            else:
-                return 'N/A'            
-        return caption
+        caption = self.inference(image_crop, filter)
+        return caption, crop_save_path
         
 
-    def inference_seg(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str], crop_mode="w_bg", filter=False):
+    def inference_seg(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str], crop_mode="w_bg", filter=False, regular_box = False):
         if type(image) == str:
             image = Image.open(image)
         if type(seg_mask) == str:
@@ -150,8 +149,11 @@ class BaseCaptioner:
             image = np.array(image) * seg_mask[:,:,np.newaxis]
         else:
             image = np.array(image)
-            
-        min_area_box = seg_to_box(seg_mask)
+
+        if regular_box:
+            min_area_box = new_seg_to_box(seg_mask)
+        else:
+            min_area_box = seg_to_box(seg_mask)
         return self.inference_box(image, min_area_box, filter)
         
 
