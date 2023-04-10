@@ -15,7 +15,7 @@ class BLIP2Captioner(BaseCaptioner):
         self.dialogue = dialogue
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
         self.processor = AutoProcessor.from_pretrained("Salesforce/blip2-opt-2.7b")
-        self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b", torch_dtype = self.torch_dtype).to(device)
+        self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b", device_map = 'auto', load_in_8bit=True)
         
     @torch.no_grad()
     def inference(self, image: Union[np.ndarray, Image.Image, str], filter=False):
