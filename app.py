@@ -8,6 +8,7 @@ import json
 import sys
 import argparse
 from caas import parse_augment
+import os
 
 title = """<h1 align="center">Caption-Anything</h1>"""
 description = """Gradio demo for Caption Anything, image to dense captioning generation with various language styles. To use it, simply upload your image, or click one of the examples to load them.
@@ -19,17 +20,6 @@ examples = [
 ]
 
 args = parse_augment()
-
-# args = type('args', (object,), {})()
-# args.captioner='blip'
-# args.segmenter='base'
-# args.text_refiner = 'base'
-# args.segmenter_checkpoint = 'segmenter/sam_vit_h_4b8939.pth'
-# args.seg_crop_mode = 'w_bg'
-# args.clip_filter = False
-# args.device = "cuda" if torch.cuda.is_available() else "cpu"
-
-model = CaptionAnything(args)
 
 def get_prompt(chat_input, click_state):    
     points = click_state[0]
@@ -85,23 +75,22 @@ def chat_with_points(chat_input, click_state, state):
     prev_visual_context = ""
     pos_points = [f"{points[i][0]}, {points[i][1]}" for i in range(len(points)) if labels[i] == 1]
     prev_visual_context = ', '.join(pos_points) + captions[-1] + '\n'
-    
-    # for i in range(len(points)):
-    #     pos_points = [p for j,p in enumerate(points[i]) if labels[i][j] == 1]
-    #     pos_points = [f'({w}, {h})' for w, h in enumerate(pos_points)]
-    #     point_prompt = ', '.join(pos_points) + captions[i] + '\n'
-    #     prev_visual_context = prev_visual_context + point_prompt
     chat_prompt = point_chat_prompt.format(**{"points_with_caps": prev_visual_context, "chat_input": chat_input})
     response = model.text_refiner.llm(chat_prompt)
     state = state + [(chat_input, response)]
     return state, state
 
-with gr.Blocks(
-    css="""
-    .message.svelte-w6rprc.svelte-w6rprc.svelte-w6rprc {font-size: 20px; margin-top: 20px}
-    #component-21 > div.wrap.svelte-w6rprc {height: 600px;}
-    """
-) as iface:
+def init_openai_api_key(api_key):
+    os.environ['OPENAI_API_KEY'] = api_key
+    global model
+    model = CaptionAnything(args)
+
+css='''
+#image_upload{min-height:200px}
+#image_upload [data-testid="image"], #image_upload [data-testid="image"] > div{min-height: 200px}
+'''
+
+with gr.Blocks(css=css) as iface:
     state = gr.State([])
     click_state = gr.State([[],[],[]])
     caption_state = gr.State([[]])
@@ -109,9 +98,17 @@ with gr.Blocks(
     gr.Markdown(description)
 
     with gr.Column():
+        openai_api_key = gr.Textbox(
+            placeholder="Input your openAI API key and press Enter",
+            show_label=False,
+            lines=1,
+            type="password",
+        )
+        openai_api_key.submit(init_openai_api_key, inputs=[openai_api_key])
+        
         with gr.Row():
             with gr.Column(scale=0.7):
-                image_input = gr.Image(type="pil", interactive=True, label="Image").style(height=260,scale=1.0)
+                image_input = gr.Image(type="pil", interactive=True, label="Image", elem_id="image_upload").style(height=600).style(height=200,scale=1.0)
 
                 with gr.Row(scale=0.7):
                     point_prompt = gr.Radio(
@@ -152,7 +149,7 @@ with gr.Blocks(
             with gr.Column(scale=1.5):
                 with gr.Row():
                     image_output_mask= gr.Image(type="pil", interactive=False, label="Mask").style(height=260,scale=1.0)
-                    image_output_crop= gr.Image(type="pil", interactive=False, label="Cropped Image by Mask").style(height=260,scale=1.0)
+                    image_output_crop= gr.Image(type="pil", interactive=False, label="Cropped Image by Mask", show_progress=False).style(height=260,scale=1.0)
                 chatbot = gr.Chatbot(label="Chat Output",).style(height=450,scale=0.5)
         
         with gr.Row():
@@ -171,6 +168,7 @@ with gr.Blocks(
                         click_state
                     ],
                     [chatbot, state, click_state, image_output_mask, image_output_crop],
+                    show_progress=False
                 )
                 
                 image_input.upload(
@@ -186,6 +184,7 @@ with gr.Blocks(
                         [],
                         [prompt_input, click_state, image_output_mask, image_output_crop],
                         queue=False,
+                        show_progress=False
                     )
                     
                     clear_button = gr.Button(value="Clear", interactive=True)
@@ -194,6 +193,7 @@ with gr.Blocks(
                         [],
                         [prompt_input, chatbot, state, click_state, image_output_mask, image_output_crop],
                         queue=False,
+                        show_progress=False
                     )
                     
                     submit_button = gr.Button(
@@ -212,13 +212,15 @@ with gr.Blocks(
                             click_state
                         ],
                         [chatbot, state, click_state, image_output_mask, image_output_crop],
+                        show_progress=False
                     )
                     
                 # select coordinate
                 image_input.select(
                     get_select_coords, 
                     inputs=[image_input,point_prompt,language,sentiment,factuality,length,state,click_state], 
-                    outputs=[prompt_input, chatbot, state, click_state, image_output_mask, image_output_crop]
+                    outputs=[prompt_input, chatbot, state, click_state, image_output_mask, image_output_crop],
+                    show_progress=False
                     )
 
                 image_input.change(
