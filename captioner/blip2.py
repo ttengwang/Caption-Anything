@@ -9,8 +9,8 @@ from typing import Union
 from .base_captioner import BaseCaptioner
 
 class BLIP2Captioner(BaseCaptioner):
-    def __init__(self, device, dialogue: bool = False, cache_dir = None):
-        super().__init__(device)
+    def __init__(self, device, dialogue: bool = False, cache_dir = None, enable_filter: bool = False):
+        super().__init__(device, enable_filter)
         self.device = device
         self.dialogue = dialogue
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
