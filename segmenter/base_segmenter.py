@@ -21,6 +21,7 @@ class BaseSegmenter:
 
         self.predictor = SamPredictor(self.model)
         self.mask_generator = SamAutomaticMaskGenerator(self.model)
+        self.image_embedding = None
     
     @torch.no_grad()
     def inference(self, image, control):
@@ -36,7 +37,9 @@ class BaseSegmenter:
             new_masks = np.concatenate([mask["segmentation"][np.newaxis,:] for mask in masks])
             return new_masks
         else:
-            self.predictor.set_image(image)
+            if self.image_embedding is None:
+                self.predictor.set_image(image)
+                self.image_embedding = self.predictor.get_image_embedding()
       
         if 'mutimask_output' in control:
             masks, scores, logits = self.predictor.predict(
@@ -80,9 +83,68 @@ class BaseSegmenter:
                 )
   
         return masks
+
+#     @torch.no_grad()
+#     def inference_onnx(self, image, control):
+#         # Implement segment anything
+#         if type(image) == str: # input path
+#             image = cv2.imread(image)
+#             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+#         elif type(image) == PIL.Image.Image:
+#             image = np.array(image)
         
+#         if 'everything' in control['prompt_type']:
+#             masks = self.mask_generator.generate(image)
+#             new_masks = np.concatenate([mask["segmentation"][np.newaxis,:] for mask in masks])
+#             return new_masks
+#         else:
+#             self.predictor.set_image(image)
+#             self.image_embedding = self.predictor.get_image_embedding()
+      
+#         if 'mutimask_output' in control:
+#             masks, scores, logits = self.predictor.predict(
+#                 point_coords = np.array(control['input_point']),
+#                 point_labels = np.array(control['input_label']),
+#                 multimask_output = True,
+#             )
+#         elif 'input_boxes' in control:
+#             transformed_boxes = self.predictor.transform.apply_boxes_torch(
+#                 torch.tensor(control["input_boxes"], device=self.predictor.device),
+#                 image.shape[:2]
+#             )
+#             masks, _, _ = self.predictor.predict_torch(
+#                 point_coords=None,
+#                 point_labels=None,
+#                 boxes=transformed_boxes,
+#                 multimask_output=False,
+#             )
+#             masks = masks.squeeze(1).cpu().numpy()
+            
+#         else:
+#             input_point = np.array(control['input_point']) if 'click' in control['prompt_type'] else None
+#             input_label = np.array(control['input_label']) if 'click' in control['prompt_type'] else None
+#             input_box = np.array(control['input_box']) if 'box' in control['prompt_type'] else None
+           
+#             masks, scores, logits = self.predictor.predict(
+#                 point_coords = input_point,
+#                 point_labels = input_label,
+#                 box = input_box,
+#                 multimask_output = False,
+#             )
+            
+#             if 0 in control['input_label']:
+#                 mask_input = logits[np.argmax(scores), :, :]
+#                 masks, scores, logits = self.predictor.predict(
+#                     point_coords=input_point,
+#                     point_labels=input_label,
+#                     box = input_box,
+#                     mask_input=mask_input[None, :, :],
+#                     multimask_output=False,
+#                 )
+  
+#         return masks
 if __name__ == "__main__":
-    image_path = 'images/truck.jpg'
+    image_path = 'segmenter/images/truck.jpg'
     prompts = [
         {
             "prompt_type":["click"],
@@ -124,7 +186,10 @@ if __name__ == "__main__":
     )
     print(f'init time: {time.time() - init_time}')
     
+    infer_time = time.time()
     for i, prompt in enumerate(prompts):
         print(f'{prompt["prompt_type"]} mode')
         masks = segmenter.inference(image_path, prompt)
         print(masks.shape)
+        
+    print(f'infer time: {time.time() - infer_time}')
