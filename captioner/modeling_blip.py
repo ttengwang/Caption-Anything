@@ -694,14 +694,14 @@ class BlipVisionModel(BlipPreTrainedModel):
 
         hidden_states = self.embeddings(pixel_values)
         B, N, D = hidden_states.shape
-        print('Before mask:', hidden_states.shape)
+        # print('Before mask:', hidden_states.shape)
         if pixel_masks is not None:
             assert pixel_masks.shape[0] == 1
             patch_masks = self.patch_mask_generator(pixel_masks)
-            print(patch_masks.shape)
+            # print(patch_masks.shape)
             patch_masks = patch_masks.unsqueeze(-1).expand_as(hidden_states)
             hidden_states = hidden_states.masked_select(patch_masks).view(B, -1, D)
-            print('After mask:', hidden_states.shape)
+            # print('After mask:', hidden_states.shape)
 
         encoder_outputs = self.encoder(
             inputs_embeds=hidden_states,
