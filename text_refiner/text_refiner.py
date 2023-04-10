@@ -7,7 +7,10 @@ import pdb
 class TextRefiner:
     def __init__(self, device):
         print(f"Initializing TextRefiner to {device}")
-        self.llm = OpenAI(model_name="gpt-3.5-turbo", temperature=0)
+        try:
+            self.llm = OpenAI(model_name="gpt-3.5-turbo", temperature=0)
+        except:
+            print('Openai api key is NOT given')
         self.prompt_tag = {
             "imagination": {"True": "could",
                             "False": "could not"}

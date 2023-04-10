@@ -9,13 +9,20 @@ from PIL import Image
 
 class CaptionAnything():
     def __init__(self, args):
+        self.args = args
         self.captioner = build_captioner(args.captioner, args.device, args)
         self.segmenter = build_segmenter(args.segmenter, args.device, args)
-        self.text_refiner = build_text_refiner(args.text_refiner, args.device, args)
-        self.args = args
+        if not args.disable_gpt:
+            self.init_refiner()
 
-    def inference(self, image, prompt, controls):
+
+    def init_refiner(self):
+        if os.environ.get('OPENAI_API_KEY', None):
+            self.text_refiner = build_text_refiner(self.args.text_refiner, self.args.device, self.args)
+            
+    def inference(self, image, prompt, controls, disable_gpt=False):
         #  segment with prompt
+        print("CA prompt: ", prompt, "CA controls",controls)
         seg_mask = self.segmenter.inference(image, prompt)[0, ...]
         mask_save_path = f'result/mask_{time.time()}.png'
         if not os.path.exists(os.path.dirname(mask_save_path)):
@@ -34,8 +41,11 @@ class CaptionAnything():
         #  refining with TextRefiner
         context_captions = []
         if self.args.context_captions:
-            context_captions.append(self.captioner.inference(image))    
-        refined_caption = {'raw_caption': caption}                
+            context_captions.append(self.captioner.inference(image))
+        if not disable_gpt and hasattr(self, "text_refiner"):
+            refined_caption = self.text_refiner.inference(query=caption, controls=controls, context=context_captions)
+        else:
+            refined_caption = {'raw_caption': caption}                
         out = {'generated_captions': refined_caption,
             'crop_save_path': crop_save_path,
             'mask_save_path': mask_save_path,

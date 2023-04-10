@@ -48,7 +48,7 @@ class BaseSegmenter:
         else:
             if not self.reuse_feature:
                 self.set_image(image)
-                self.predictor.set_image(image)
+                self.predictor.set_image(self.image)
             else:
                 assert self.image_embedding is not None
                 self.predictor.features = self.image_embedding
@@ -99,35 +99,35 @@ class BaseSegmenter:
 if __name__ == "__main__":
     image_path = 'segmenter/images/truck.jpg'
     prompts = [
+        # {
+        #     "prompt_type":["click"],
+        #     "input_point":[[500, 375]],
+        #     "input_label":[1],
+        #     "multimask_output":"True",
+        # },
         {
             "prompt_type":["click"],
-            "input_point":[[500, 375]],
-            "input_label":[1],
-            "multimask_output":"True",
-        },
-        {
-            "prompt_type":["click"],
-            "input_point":[[500, 375], [1125, 625]],
+            "input_point":[[1000, 600], [1325, 625]],
             "input_label":[1, 0],
         },
-        {
-            "prompt_type":["click", "box"],
-            "input_box":[425, 600, 700, 875],
-            "input_point":[[575, 750]],
-            "input_label": [0]
-        },
-        {
-            "prompt_type":["box"],
-            "input_boxes": [
-                [75, 275, 1725, 850],
-                [425, 600, 700, 875],
-                [1375, 550, 1650, 800],
-                [1240, 675, 1400, 750],
-            ]
-        },
-        {
-            "prompt_type":["everything"]
-        },
+        # {
+        #     "prompt_type":["click", "box"],
+        #     "input_box":[425, 600, 700, 875],
+        #     "input_point":[[575, 750]],
+        #     "input_label": [0]
+        # },
+        # {
+        #     "prompt_type":["box"],
+        #     "input_boxes": [
+        #         [75, 275, 1725, 850],
+        #         [425, 600, 700, 875],
+        #         [1375, 550, 1650, 800],
+        #         [1240, 675, 1400, 750],
+        #     ]
+        # },
+        # {
+        #     "prompt_type":["everything"]
+        # },
     ]
     
     init_time = time.time()
@@ -135,14 +135,19 @@ if __name__ == "__main__":
         device='cuda',
         # checkpoint='sam_vit_h_4b8939.pth',
         checkpoint='segmenter/sam_vit_h_4b8939.pth',
-        model_type='vit_h'
+        model_type='vit_h',
+        reuse_feature=True
     )
     print(f'init time: {time.time() - init_time}')
     
+    image_path = 'test_img/img2.jpg'
     infer_time = time.time()
     for i, prompt in enumerate(prompts):
         print(f'{prompt["prompt_type"]} mode')
-        masks = segmenter.inference(image_path, prompt)
+        image = Image.open(image_path)
+        segmenter.set_image(np.array(image))
+        masks = segmenter.inference(np.array(image), prompt)
+        Image.fromarray(masks[0]).save('seg.png')
         print(masks.shape)
         
     print(f'infer time: {time.time() - infer_time}')

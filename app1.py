@@ -48,14 +48,15 @@ examples = [
 
 args = parse_augment()
 # args.device = 'cuda:5'
-args.disable_gpt = False
-args.enable_reduce_tokens = True
+# args.disable_gpt = False
+# args.enable_reduce_tokens = True
 # args.port=20322
+model = CaptionAnything(args)
 
 def init_openai_api_key(api_key):
     os.environ['OPENAI_API_KEY'] = api_key
-    global model
-    model = CaptionAnything(args)
+    model.init_refiner()
+
 
 def get_prompt(chat_input, click_state):    
     points = click_state[0]
@@ -74,6 +75,11 @@ def get_prompt(chat_input, click_state):
     return prompt
 
 def chat_with_points(chat_input, click_state, state):
+    if not hasattr(model, "text_refiner"):
+        response = "Text refiner is not initilzed, please input openai api key."
+        state = state + [(chat_input, response)]
+        return state, state
+    
     points, labels, captions = click_state
     point_chat_prompt = "I want you act as a chat bot in terms of image. I will give you some points (w, h) in the image and tell you what happed on the point in natural language. Note that (0, 0) refers to the top-left corner of the image, w refers to the width and h refers the height. You should chat with me based on the fact in the image instead of imagination. Now I tell you the points with their visual description:\n{points_with_caps}\nNow begin chatting! Human: {chat_input}\nAI: "
     # "The image is of width {width} and height {height}." 
@@ -91,7 +97,7 @@ def chat_with_points(chat_input, click_state, state):
 
 def inference_seg_cap(image_input, point_prompt, language, sentiment, factuality, length, state, click_state, evt:gr.SelectData):
 
-    if point_prompt == 'Positive Point':
+    if point_prompt == 'Positive':
         coordinate = "[[{}, {}, 1]]".format(str(evt.index[0]), str(evt.index[1]))
     else:
         coordinate = "[[{}, {}, 0]]".format(str(evt.index[0]), str(evt.index[1]))
@@ -121,17 +127,17 @@ def inference_seg_cap(image_input, point_prompt, language, sentiment, factuality
     origin_image_input = image_input
     image_input = create_bubble_frame(image_input, text, (evt.index[0], evt.index[1]))
 
-    yield state, click_state, chat_input, image_input
-    if not args.disable_gpt:
+    yield state, state, click_state, chat_input, image_input
+    if not args.disable_gpt and hasattr(model, "text_refiner"):
         refined_caption = model.text_refiner.inference(query=text, controls=controls, context=out['context_captions'])
         new_cap = 'Original: ' + text + '. Refined: ' + refined_caption['caption']
         refined_image_input = create_bubble_frame(origin_image_input, new_cap, (evt.index[0], evt.index[1]))
-        yield state, click_state, chat_input, refined_image_input
+        yield state, state, click_state, chat_input, refined_image_input
 
 
 def upload_callback(image_input, state):
     state = [] + [('Image size: ' + str(image_input.size), None)]
-    click_state = [[], []]
+    click_state = [[], [], []]
     model.segmenter.image = None
     model.segmenter.image_embedding = None
     model.segmenter.set_image(image_input)
