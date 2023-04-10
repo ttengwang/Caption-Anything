@@ -44,10 +44,10 @@ examples = [
 ]
 
 args = parse_augment()
-args.device = 'cuda:5'
-args.disable_gpt = True
+# args.device = 'cuda:5'
+args.disable_gpt = False
 args.enable_reduce_tokens = True
-args.port=20322
+# args.port=20322
 
 model = CaptionAnything(args)
 # model = None
