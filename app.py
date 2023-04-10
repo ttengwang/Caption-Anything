@@ -30,7 +30,6 @@ args = parse_augment()
 # args.device = "cuda" if torch.cuda.is_available() else "cpu"
 
 model = CaptionAnything(args)
-# model = None
 
 def get_prompt(chat_input, click_state):    
     points = click_state[0]
@@ -59,6 +58,7 @@ def inference_seg_cap(image_input, chat_input, language, sentiment, factuality, 
     state = state + [(None, "Image point: {}, Input label: {}".format(prompt["input_point"], prompt["input_label"]))]
     for k, v in out['generated_captions'].items():
         state = state + [(f'{k}: {v}', None)]
+    click_state[2].append(out['generated_captions']['raw_caption'])
     image_output_mask = out['mask_save_path']
     image_output_crop = out['crop_save_path']
     return state, state, click_state, image_output_mask, image_output_crop
@@ -75,9 +75,26 @@ def get_select_coords(image_input, point_prompt, language, sentiment, factuality
             coordinate = "[[{}, {}, 1]]".format(str(evt.index[0]), str(evt.index[1]))
         else:
             coordinate = "[[{}, {}, 0]]".format(str(evt.index[0]), str(evt.index[1]))
-            
         return (coordinate,) + inference_seg_cap(image_input, coordinate, language, sentiment, factuality, length, state, click_state)
 
+def chat_with_points(chat_input, click_state, state):
+    points, labels, captions = click_state
+    point_chat_prompt = "I want you act as a chat bot in terms of image. I will give you some points (w, h) in the image and tell you what happed on the point in natural language. Note that (0, 0) refers to the top-left corner of the image, w refers to the width and h refers the height. You should chat with me based on the fact in the image instead of imagination. Now I tell you the points with their visual description:\n{points_with_caps}\n. Now begin chatting! Human: {chat_input}\nAI: "
+    # "The image is of width {width} and height {height}." 
+    
+    prev_visual_context = ""
+    pos_points = [f"{points[i][0]}, {points[i][1]}" for i in range(len(points)) if labels[i] == 1]
+    prev_visual_context = ', '.join(pos_points) + captions[-1] + '\n'
+    
+    # for i in range(len(points)):
+    #     pos_points = [p for j,p in enumerate(points[i]) if labels[i][j] == 1]
+    #     pos_points = [f'({w}, {h})' for w, h in enumerate(pos_points)]
+    #     point_prompt = ', '.join(pos_points) + captions[i] + '\n'
+    #     prev_visual_context = prev_visual_context + point_prompt
+    chat_prompt = point_chat_prompt.format(**{"points_with_caps": prev_visual_context, "chat_input": chat_input})
+    response = model.text_refiner.llm(chat_prompt)
+    state = state + [(chat_input, response)]
+    return state, state
 
 with gr.Blocks(
     css="""
@@ -86,64 +103,66 @@ with gr.Blocks(
     """
 ) as iface:
     state = gr.State([])
-    click_state = gr.State([[],[]])
-
+    click_state = gr.State([[],[],[]])
+    caption_state = gr.State([[]])
     gr.Markdown(title)
     gr.Markdown(description)
 
-    with gr.Row():
-        with gr.Column(scale=0.7):
-            image_input = gr.Image(type="pil", interactive=True, label="Image").style(height=260,scale=1.0)
+    with gr.Column():
+        with gr.Row():
+            with gr.Column(scale=0.7):
+                image_input = gr.Image(type="pil", interactive=True, label="Image").style(height=260,scale=1.0)
 
-            with gr.Row(scale=0.7):
-                point_prompt = gr.Radio(
-                    choices=["Positive Point",  "Negative Point"],
-                    value="Positive",
-                    label="Points",
+                with gr.Row(scale=0.7):
+                    point_prompt = gr.Radio(
+                        choices=["Positive Point",  "Negative Point"],
+                        value="Positive Point",
+                        label="Points",
+                        interactive=True,
+                    )
+                
+                # with gr.Row():
+                language = gr.Radio(
+                    choices=["English", "Chinese", "French", "Spanish", "Arabic", "Portuguese","Cantonese"],
+                    value="English",
+                    label="Language",
                     interactive=True,
                 )
-            
-            # with gr.Row():
-            language = gr.Radio(
-                choices=["English", "Chinese", "French", "Spanish", "Arabic", "Portuguese","Cantonese"],
-                value="English",
-                label="Language",
-                interactive=True,
-            )
-            sentiment = gr.Radio(
-                choices=["Positive", "Natural", "Negative"],
-                value="Natural",
-                label="Sentiment",
-                interactive=True,
-            )
-            factuality = gr.Radio(
-                choices=["Factual", "Imagination"],
-                value="Factual",
-                label="Factuality",
-                interactive=True,
-            )
-            length = gr.Slider(
-                minimum=5,
-                maximum=100,
-                value=10,
-                step=1,
-                interactive=True,
-                label="Length",
-            )
+                sentiment = gr.Radio(
+                    choices=["Positive", "Natural", "Negative"],
+                    value="Natural",
+                    label="Sentiment",
+                    interactive=True,
+                )
+                factuality = gr.Radio(
+                    choices=["Factual", "Imagination"],
+                    value="Factual",
+                    label="Factuality",
+                    interactive=True,
+                )
+                length = gr.Slider(
+                    minimum=5,
+                    maximum=100,
+                    value=10,
+                    step=1,
+                    interactive=True,
+                    label="Length",
+                )
 
-        with gr.Column(scale=1.5):
-            with gr.Row():
-                image_output_mask= gr.Image(type="pil", interactive=False, label="Mask").style(height=260,scale=1.0)
-                image_output_crop= gr.Image(type="pil", interactive=False, label="Cropped Image by Mask").style(height=260,scale=1.0)
-            chatbot = gr.Chatbot(label="Chat Output",).style(height=500,scale=0.5)
-            with gr.Row():
-            # with gr.Column(scale=1):
-                chat_input = gr.Textbox(lines=1, label="Input Prompt (A list of points lke : [[100, 200, 1], [200,300,0]])")
-                chat_input.submit(
+            with gr.Column(scale=1.5):
+                with gr.Row():
+                    image_output_mask= gr.Image(type="pil", interactive=False, label="Mask").style(height=260,scale=1.0)
+                    image_output_crop= gr.Image(type="pil", interactive=False, label="Cropped Image by Mask").style(height=260,scale=1.0)
+                chatbot = gr.Chatbot(label="Chat Output",).style(height=450,scale=0.5)
+        
+        with gr.Row():
+            with gr.Column(scale=0.7):
+                prompt_input = gr.Textbox(lines=1, label="Input Prompt (A list of points like : [[100, 200, 1], [200,300,0]])")
+                prompt_input.submit(
                     inference_seg_cap,
                     [
                         image_input,
-                        chat_input,
+                        prompt_input,
                         language,
                         sentiment,
                         factuality,
@@ -163,20 +182,20 @@ with gr.Blocks(
                 with gr.Row():
                     clear_button = gr.Button(value="Clear Click", interactive=True)
                     clear_button.click(
-                        lambda: ("", [[], []], None, None),
+                        lambda: ("", [[], [], []], None, None),
                         [],
-                        [chat_input, click_state, image_output_mask, image_output_crop],
+                        [prompt_input, click_state, image_output_mask, image_output_crop],
                         queue=False,
                     )
                     
                     clear_button = gr.Button(value="Clear", interactive=True)
                     clear_button.click(
-                        lambda: ("", [], [], [[], []], None, None),
+                        lambda: ("", [], [], [[], [], []], None, None),
                         [],
-                        [chat_input, chatbot, state, click_state, image_output_mask, image_output_crop],
+                        [prompt_input, chatbot, state, click_state, image_output_mask, image_output_crop],
                         queue=False,
                     )
-
+                    
                     submit_button = gr.Button(
                         value="Submit", interactive=True, variant="primary"
                     )
@@ -184,7 +203,7 @@ with gr.Blocks(
                         inference_seg_cap,
                         [
                             image_input,
-                            chat_input,
+                            prompt_input,
                             language,
                             sentiment,
                             factuality,
@@ -194,23 +213,29 @@ with gr.Blocks(
                         ],
                         [chatbot, state, click_state, image_output_mask, image_output_crop],
                     )
+                    
+                # select coordinate
+                image_input.select(
+                    get_select_coords, 
+                    inputs=[image_input,point_prompt,language,sentiment,factuality,length,state,click_state], 
+                    outputs=[prompt_input, chatbot, state, click_state, image_output_mask, image_output_crop]
+                    )
 
-            # select coordinate
-            image_input.select(
-                get_select_coords, 
-                inputs=[image_input,point_prompt,language,sentiment,factuality,length,state,click_state], 
-                outputs=[chat_input, chatbot, state, click_state, image_output_mask, image_output_crop]
+                image_input.change(
+                    lambda: ("", [], [[], [], []]),
+                    [],
+                    [chatbot, state, click_state],
+                    queue=False,
                 )
-
-            image_input.change(
-                lambda: ("", [], [[], []]),
-                [],
-                [chatbot, state, click_state],
-                queue=False,
-            )
+                
+            with gr.Column(scale=1.5):
+                chat_input = gr.Textbox(lines=1, label="Chat Input")
+                chat_input.submit(chat_with_points, [chat_input, click_state, state], [chatbot, state])
+                
+                    
     examples = gr.Examples(
         examples=examples,
-        inputs=[image_input, chat_input],
+        inputs=[image_input, prompt_input],
     )
 
 iface.queue(concurrency_count=1, api_open=False, max_size=10)
