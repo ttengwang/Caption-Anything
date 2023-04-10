@@ -44,16 +44,16 @@ def create_bubble_frame(image, text, point, font_path='DejaVuSansCondensed-Bold.
     bubble_height = text_height + 2 * padding
 
     # Create a new image for the bubble frame
-    bubble = Image.new('RGBA', (bubble_width, bubble_height), (255, 255, 255, 150))
+    bubble = Image.new('RGBA', (bubble_width, bubble_height), (255, 255, 255, 0))
 
     # Draw the bubble frame on the new image
     draw = ImageDraw.Draw(bubble)
-    draw.rectangle([(0, 0), (bubble_width - 1, bubble_height - 1)], outline=(0, 0, 0, 200), width=2)
+    draw.rectangle([(0, 0), (bubble_width - 1, bubble_height - 1)], fill=(255, 255, 255, 0), outline=(255, 255, 255, 0), width=2)
 
     # Draw the wrapped text line by line
     y_text = padding
     for line in lines:
-        draw.text((padding, y_text), line, font=font, fill=(50, 50, 50, 255))
+        draw.text((padding, y_text), line, font=font, fill=(255, 255, 255, 255))
         y_text += font.getsize(line)[1]
 
     # Calculate the bubble frame position
