@@ -108,7 +108,7 @@ with gr.Blocks(css=css) as iface:
         
         with gr.Row():
             with gr.Column(scale=0.7):
-                image_input = gr.Image(type="pil", interactive=True, label="Image", elem_id="image_upload").style(height=600).style(height=200,scale=1.0)
+                image_input = gr.Image(type="pil", interactive=True, label="Image", elem_id="image_upload").style(height=260,scale=1.0)
 
                 with gr.Row(scale=0.7):
                     point_prompt = gr.Radio(

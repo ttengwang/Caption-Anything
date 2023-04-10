@@ -12,7 +12,8 @@ import numpy as np
 import PIL.ImageDraw as ImageDraw
 from image_editing_utils import create_bubble_frame
 import copy
-
+from tools import mask_painter
+from PIL import Image
 
 title = """<h1 align="center">Caption-Anything</h1>"""
 description = """Gradio demo for Caption Anything, image to dense captioning generation with various language styles. To use it, simply upload your image, or click one of the examples to load them.
@@ -24,10 +25,10 @@ examples = [
 ]
 
 args = parse_augment()
-args.device = 'cuda:2'
-args.disable_gpt = True
-args.enable_reduce_tokens = True
-args.port=20325
+# args.device = 'cuda:2'
+# args.disable_gpt = True
+# args.enable_reduce_tokens = True
+# args.port=20325
 
 model = CaptionAnything(args)
 # model = None
@@ -65,6 +66,8 @@ def inference_seg_cap(image_input, chat_input, language, sentiment, factuality, 
     text = out['generated_captions']['raw_caption']
     # draw = ImageDraw.Draw(image_input)
     # draw.text((evt.index[0], evt.index[1]), text, textcolor=(0,0,255), text_size=120)
+    input_mask = np.array(Image.open(out['mask_save_path']).convert('P'))
+    image_input = mask_painter(np.array(image_input), input_mask)
     image_input = create_bubble_frame(image_input, text, (evt.index[0], evt.index[1])) 
     return text, click_state, chat_input, image_input
 
