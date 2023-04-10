@@ -207,7 +207,7 @@ with gr.Blocks(
                 clear_button_text = gr.Button(value="Clear Text", interactive=True)
                 submit_button_text = gr.Button(value="Submit", interactive=True, variant="primary")
     clear_button_clike.click(
-        lambda x: ([[], [], []], copy.deepcopy(x)),
+        lambda x: ([[], [], []], x),
         [origin_image],
         [click_state, image_input],
         queue=False,
