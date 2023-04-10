@@ -10,6 +10,23 @@ import argparse
 from caas import parse_augment
 import os
 
+# download sam checkpoint if not downloaded
+def download_checkpoint(url, folder, filename):
+    os.makedirs(folder, exist_ok=True)
+    filepath = os.path.join(folder, filename)
+
+    if not os.path.exists(filepath):
+        response = requests.get(url, stream=True)
+        with open(filepath, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+
+    return filepath
+checkpoint_url = "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth"
+folder = "segmenter"
+filename = "sam_vit_h_4b8939.pth"
+
 title = """<h1 align="center">Caption-Anything</h1>"""
 description = """Gradio demo for Caption Anything, image to dense captioning generation with various language styles. To use it, simply upload your image, or click one of the examples to load them.
 <br> <strong>Code</strong>: GitHub repo: <a href='https://github.com/ttengwang/Caption-Anything' target='_blank'></a>

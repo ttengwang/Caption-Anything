@@ -15,15 +15,14 @@ class BLIP2Captioner(BaseCaptioner):
         self.dialogue = dialogue
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
         self.processor = AutoProcessor.from_pretrained("Salesforce/blip2-opt-2.7b")
-        self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b", device_map = 'auto', load_in_8bit=True)
-        
+        self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b", device_map = 'sequential', load_in_8bit=True)
     @torch.no_grad()
     def inference(self, image: Union[np.ndarray, Image.Image, str], filter=False):
         if type(image) == str: # input path
                 image = Image.open(image)
 
         if not self.dialogue:
-            inputs = self.processor(image, return_tensors="pt").to(self.device, self.torch_dtype)
+            inputs = self.processor(image, text = 'Ignore the black background! This is a photo of ', return_tensors="pt").to(self.device, self.torch_dtype)
             out = self.model.generate(**inputs, max_new_tokens=50)
             captions = self.processor.decode(out[0], skip_special_tokens=True)
             if self.enable_filter and filter:
