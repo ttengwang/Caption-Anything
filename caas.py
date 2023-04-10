@@ -34,11 +34,8 @@ class CaptionAnything():
         #  refining with TextRefiner
         context_captions = []
         if self.args.context_captions:
-            context_captions.append(self.captioner.inference(image))
-        if self.args.disable_gpt:
-            refined_caption = {'raw_caption': caption}
-        else:
-            refined_caption = self.text_refiner.inference(query=caption, controls=controls, context=context_captions)                
+            context_captions.append(self.captioner.inference(image))    
+        refined_caption = {'raw_caption': caption}                
         out = {'generated_captions': refined_caption,
             'crop_save_path': crop_save_path,
             'mask_save_path': mask_save_path,
@@ -61,6 +58,7 @@ def parse_augment():
     parser.add_argument('--gradio_share', action="store_true")
     parser.add_argument('--disable_gpt', action="store_true")
     parser.add_argument('--enable_reduce_tokens', action="store_true", default=False)
+    parser.add_argument('--disable_reuse_features', action="store_true", default=False)
     args = parser.parse_args()
 
     if args.debug:
