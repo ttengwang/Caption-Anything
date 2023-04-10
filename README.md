@@ -17,6 +17,12 @@ Caption-Anything supports both visual controls and textual controls:
 * Wikipedia Search
 * Template sentence
 
+### CAAS
+You can canption any object in the image with any style!
+
+### More Examples
+![](./Image/demo2.svg)
+
 # Environment setup
 ```
 # change the openai api-key value in env.sh
