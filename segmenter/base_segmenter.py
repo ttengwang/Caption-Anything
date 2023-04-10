@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import PIL
 
 class BaseSegmenter:
-    def __init__(self, device, checkpoint, model_type='vit_h'):
+    def __init__(self, device, checkpoint, model_type='vit_h', reuse_feature = True):
         print(f"Initializing BaseSegmenter to {device}")
         self.device = device
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
@@ -18,36 +18,39 @@ class BaseSegmenter:
         self.checkpoint = checkpoint
         self.model = sam_model_registry[self.model_type](checkpoint=self.checkpoint)
         self.model.to(device=self.device)
-
+        self.reuse_feature = reuse_feature
         self.predictor = SamPredictor(self.model)
         self.mask_generator = SamAutomaticMaskGenerator(self.model)
         self.image_embedding = None
         self.image = None
+
+    
+    @torch.no_grad()
+    def set_image(self, image: Union[np.ndarray, Image.Image, str]):
+        if type(image) == str: # input path
+            image = Image.open(image)
+            image = np.array(image)
+        elif type(image) == Image.Image:
+            image = np.array(image)
+        self.image = image
+        if self.reuse_feature:
+            self.predictor.set_image(image)
+            self.image_embedding = self.predictor.get_image_embedding()
+            print(self.image_embedding.shape)
+
     
     @torch.no_grad()
     def inference(self, image, control):
-        # Implement segment anything
-        reuse_feature = False
-        if self.image == image:
-            reuse_feature = True
-        else:
-            self.image = image
-        
-        if type(image) == str: # input path
-            image = cv2.imread(image)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        elif type(image) == PIL.Image.Image:
-            image = np.array(image)
-        
         if 'everything' in control['prompt_type']:
             masks = self.mask_generator.generate(image)
             new_masks = np.concatenate([mask["segmentation"][np.newaxis,:] for mask in masks])
             return new_masks
         else:
-            if not reuse_feature:
+            if not self.reuse_feature:
+                self.set_image(image)
                 self.predictor.set_image(image)
-                self.image_embedding = self.predictor.get_image_embedding()
             else:
+                assert self.image_embedding is not None
                 self.predictor.features = self.image_embedding
       
         if 'mutimask_output' in control:
