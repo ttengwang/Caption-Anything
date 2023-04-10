@@ -32,7 +32,7 @@ class BLIPCaptioner(BaseCaptioner):
         return captions
     
     @torch.no_grad()
-    def inference_with_reduced_tokens(self, image: Union[np.ndarray, Image.Image, str], seg_mask):
+    def inference_with_reduced_tokens(self, image: Union[np.ndarray, Image.Image, str], seg_mask, filter: bool=False):
         if type(image) == str: # input path
             image = Image.open(image)
         inputs = self.processor(image, return_tensors="pt")
@@ -45,6 +45,8 @@ class BLIPCaptioner(BaseCaptioner):
         pixel_masks = seg_mask.unsqueeze(0).to(self.device)
         out = self.model.generate(pixel_values=pixel_values, pixel_masks=pixel_masks, max_new_tokens=50)
         captions = self.processor.decode(out[0], skip_special_tokens=True)
+        if self.enable_filter and filter:
+            captions = self.filter_caption(image, captions)
         print(f"\nProcessed ImageCaptioning by BLIPCaptioner, Output Text: {captions}")
         return captions
 
