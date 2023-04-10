@@ -178,7 +178,7 @@ class BaseCaptioner:
             box = seg_to_box(seg_mask)
         
         if np.array(box).size == 4: # [x0, y0, x1, y1], where (x0, y0), (x1, y1) represent top-left and bottom-right corners
-            size = max(image.width, image.height)
+            size = max(image.shape[0], image.shape[1])
             x1, y1, x2, y2 = box
             image_crop = np.array(image.crop((x1 * size, y1 * size, x2 * size, y2 * size)))  
         elif np.array(box).size == 8: # four corners of an irregular rectangle

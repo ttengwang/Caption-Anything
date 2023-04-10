@@ -16,6 +16,25 @@ from tools import mask_painter
 from PIL import Image
 import os
 
+def download_checkpoint(url, folder, filename):
+    os.makedirs(folder, exist_ok=True)
+    filepath = os.path.join(folder, filename)
+
+    if not os.path.exists(filepath):
+        response = requests.get(url, stream=True)
+        with open(filepath, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+
+    return filepath
+checkpoint_url = "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth"
+folder = "segmenter"
+filename = "sam_vit_h_4b8939.pth"
+
+download_checkpoint(checkpoint_url, folder, filename)
+
+
 title = """<h1 align="center">Caption-Anything</h1>"""
 description = """Gradio demo for Caption Anything, image to dense captioning generation with various language styles. To use it, simply upload your image, or click one of the examples to load them. Code: https://github.com/ttengwang/Caption-Anything
 """
@@ -28,10 +47,10 @@ examples = [
 ]
 
 args = parse_augment()
-# args.device = 'cuda:2'
-# args.disable_gpt = True
-# args.enable_reduce_tokens = True
-# args.port=20325
+# args.device = 'cuda:5'
+args.disable_gpt = False
+args.enable_reduce_tokens = True
+# args.port=20322
 
 def init_openai_api_key(api_key):
     os.environ['OPENAI_API_KEY'] = api_key
@@ -81,10 +100,12 @@ def inference_seg_cap(image_input, point_prompt, language, sentiment, factuality
              'sentiment': sentiment,
              'factuality': factuality,
              'language': language}
+
     # click_coordinate = "[[{}, {}, 1]]".format(str(evt.index[0]), str(evt.index[1])) 
     # chat_input = click_coordinate
     prompt = get_prompt(coordinate, click_state)
     print('prompt: ', prompt, 'controls: ', controls)
+
     out = model.inference(image_input, prompt, controls)
     state = state + [(None, "Image point: {}, Input label: {}".format(prompt["input_point"], prompt["input_label"]))]
     for k, v in out['generated_captions'].items():
@@ -97,16 +118,24 @@ def inference_seg_cap(image_input, point_prompt, language, sentiment, factuality
     # draw.text((evt.index[0], evt.index[1]), text, textcolor=(0,0,255), text_size=120)
     input_mask = np.array(Image.open(out['mask_save_path']).convert('P'))
     image_input = mask_painter(np.array(image_input), input_mask)
-    image_input = create_bubble_frame(image_input, text, (evt.index[0], evt.index[1])) 
-    return state, state, click_state, chat_input, image_input
+    origin_image_input = image_input
+    image_input = create_bubble_frame(image_input, text, (evt.index[0], evt.index[1]))
+
+    yield state, click_state, chat_input, image_input
+    if not args.disable_gpt:
+        refined_caption = model.text_refiner.inference(query=text, controls=controls, context=out['context_captions'])
+        new_cap = 'Original: ' + text + '. Refined: ' + refined_caption['caption']
+        refined_image_input = create_bubble_frame(origin_image_input, new_cap, (evt.index[0], evt.index[1]))
+        yield state, click_state, chat_input, refined_image_input
 
 
 def upload_callback(image_input, state):
-    state = state + [('Image size: ' + str(image_input.size), None)]
-    return state, image_input
-
-def clear_callback(image_input, state):
-    return 
+    state = [] + [('Image size: ' + str(image_input.size), None)]
+    click_state = [[], []]
+    model.segmenter.image = None
+    model.segmenter.image_embedding = None
+    model.segmenter.set_image(image_input)
+    return state, image_input, click_state
 
 with gr.Blocks(
     css='''
@@ -166,7 +195,7 @@ with gr.Blocks(
                 type="password"
                 )
             openai_api_key.submit(init_openai_api_key, inputs=[openai_api_key])
-            chatbot = gr.Chatbot(label="Ask Question to the Selected Object",).style(height=620,scale=0.5)
+            chatbot = gr.Chatbot(label="Chat about Selected Object",).style(height=620,scale=0.5)
             chat_input = gr.Textbox(lines=1, label="Chat Input")
             with gr.Row():
                 clear_button_text = gr.Button(value="Clear Text", interactive=True)
@@ -205,8 +234,8 @@ with gr.Blocks(
         inputs=[image_input],
     )
 
+    image_input.upload(upload_callback,[image_input, state], [state, origin_image, click_state])
     chat_input.submit(chat_with_points, [chat_input, click_state, state], [chatbot, state])
-    image_input.upload(upload_callback,[image_input, state], [state, origin_image])
 
     # select coordinate
     image_input.select(inference_seg_cap, 
@@ -220,8 +249,9 @@ with gr.Blocks(
         state,
         click_state
         ],
+
     outputs=[chatbot, state, click_state, chat_input, image_input],
-    show_progress=False)
+    show_progress=False, queue=True)
     
 iface.queue(concurrency_count=1, api_open=False, max_size=10)
 iface.launch(server_name="0.0.0.0", enable_queue=True, server_port=args.port, share=args.gradio_share)

@@ -120,7 +120,15 @@ def vis_add_mask(image, mask, color, alpha, kernel_size):
 	return image
 
 
-def mask_painter(input_image, input_mask, background_alpha=0.7, background_blur_radius=35, contour_width=7, contour_color=3, contour_alpha=1):
+def vis_add_mask_wo_blur(image, mask, color, alpha):
+	color = np.array(color)
+	mask = mask.astype('float').copy()
+	for i in range(3):
+		image[:, :, i] = image[:, :, i] * (1-alpha+mask) + color[i] * (alpha-mask)
+	return image
+
+
+def mask_painter(input_image, input_mask, background_alpha=0.7, background_blur_radius=7, contour_width=3, contour_color=3, contour_alpha=1):
 	"""
 	Input:
 	input_image: numpy array
@@ -142,14 +150,13 @@ def mask_painter(input_image, input_mask, background_alpha=0.7, background_blur_
 
 	# mask background
 	painted_image = vis_add_mask(input_image, input_mask, color_list[0], background_alpha, background_blur_radius)	# black for background
-	
 	# mask contour
 	contour_mask = input_mask.copy()
 	contour_mask = cv2.Canny(contour_mask, 100, 200)	# contour extraction
 	# widden contour
 	kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (contour_width, contour_width))
 	contour_mask = cv2.dilate(contour_mask, kernel)
-	painted_image = vis_add_mask(painted_image, 255-contour_mask, color_list[contour_color], contour_alpha, contour_width+4)
+	painted_image = vis_add_mask(painted_image, 255-contour_mask, color_list[contour_color], contour_alpha, contour_width)
 
 	return painted_image
 
