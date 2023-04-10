@@ -14,14 +14,17 @@ from image_editing_utils import create_bubble_frame
 import copy
 from tools import mask_painter
 from PIL import Image
+import os
 
 title = """<h1 align="center">Caption-Anything</h1>"""
-description = """Gradio demo for Caption Anything, image to dense captioning generation with various language styles. To use it, simply upload your image, or click one of the examples to load them.
-<br> <strong>Code</strong>: GitHub repo: < a href=' ' target='_blank'></ a>
+description = """Gradio demo for Caption Anything, image to dense captioning generation with various language styles. To use it, simply upload your image, or click one of the examples to load them. Code: https://github.com/ttengwang/Caption-Anything
 """
 
 examples = [
-    ["test_img/img2.jpg", "[[1000, 700, 1]]"]
+    ["test_img/img2.jpg"],
+    ["test_img/img5.jpg"],
+    ["test_img/img12.jpg"],
+    ["test_img/img14.jpg"],
 ]
 
 args = parse_augment()
@@ -30,8 +33,10 @@ args = parse_augment()
 # args.enable_reduce_tokens = True
 # args.port=20325
 
-model = CaptionAnything(args)
-# model = None
+def init_openai_api_key(api_key):
+    os.environ['OPENAI_API_KEY'] = api_key
+    global model
+    model = CaptionAnything(args)
 
 def get_prompt(chat_input, click_state):    
     points = click_state[0]
@@ -48,20 +53,44 @@ def get_prompt(chat_input, click_state):
         "multimask_output":"True",
     }
     return prompt
+
+def chat_with_points(chat_input, click_state, state):
+    points, labels, captions = click_state
+    point_chat_prompt = "I want you act as a chat bot in terms of image. I will give you some points (w, h) in the image and tell you what happed on the point in natural language. Note that (0, 0) refers to the top-left corner of the image, w refers to the width and h refers the height. You should chat with me based on the fact in the image instead of imagination. Now I tell you the points with their visual description:\n{points_with_caps}\nNow begin chatting! Human: {chat_input}\nAI: "
+    # "The image is of width {width} and height {height}." 
     
-def inference_seg_cap(image_input, chat_input, language, sentiment, factuality, length, state, click_state, evt:gr.SelectData):
+    prev_visual_context = ""
+    pos_points = [f"{points[i][0]}, {points[i][1]}" for i in range(len(points)) if labels[i] == 1]
+    if len(captions):
+        prev_visual_context = ', '.join(pos_points) + captions[-1] + '\n'
+    else:
+        prev_visual_context = 'no point exists.'
+    chat_prompt = point_chat_prompt.format(**{"points_with_caps": prev_visual_context, "chat_input": chat_input})
+    response = model.text_refiner.llm(chat_prompt)
+    state = state + [(chat_input, response)]
+    return state, state
+
+def inference_seg_cap(image_input, point_prompt, language, sentiment, factuality, length, state, click_state, evt:gr.SelectData):
+
+    if point_prompt == 'Positive Point':
+        coordinate = "[[{}, {}, 1]]".format(str(evt.index[0]), str(evt.index[1]))
+    else:
+        coordinate = "[[{}, {}, 0]]".format(str(evt.index[0]), str(evt.index[1]))
+        
     controls = {'length': length,
              'sentiment': sentiment,
              'factuality': factuality,
              'language': language}
-    click_coordinate = "[[{}, {}, 1]]".format(str(evt.index[0]), str(evt.index[1])) 
-    chat_input = click_coordinate
-    prompt = get_prompt(chat_input, click_state)
+    # click_coordinate = "[[{}, {}, 1]]".format(str(evt.index[0]), str(evt.index[1])) 
+    # chat_input = click_coordinate
+    prompt = get_prompt(coordinate, click_state)
     print('prompt: ', prompt, 'controls: ', controls)
     out = model.inference(image_input, prompt, controls)
     state = state + [(None, "Image point: {}, Input label: {}".format(prompt["input_point"], prompt["input_label"]))]
     for k, v in out['generated_captions'].items():
         state = state + [(f'{k}: {v}', None)]
+    
+    click_state[2].append(out['generated_captions']['raw_caption'])
     
     text = out['generated_captions']['raw_caption']
     # draw = ImageDraw.Draw(image_input)
@@ -69,13 +98,15 @@ def inference_seg_cap(image_input, chat_input, language, sentiment, factuality, 
     input_mask = np.array(Image.open(out['mask_save_path']).convert('P'))
     image_input = mask_painter(np.array(image_input), input_mask)
     image_input = create_bubble_frame(image_input, text, (evt.index[0], evt.index[1])) 
-    return text, click_state, chat_input, image_input
+    return state, state, click_state, chat_input, image_input
 
 
 def upload_callback(image_input, state):
     state = state + [('Image size: ' + str(image_input.size), None)]
     return state, image_input
 
+def clear_callback(image_input, state):
+    return 
 
 with gr.Blocks(
     css='''
@@ -84,7 +115,7 @@ with gr.Blocks(
     '''
 ) as iface:
     state = gr.State([])
-    click_state = gr.State([[],[]])
+    click_state = gr.State([[],[],[]])
     origin_image = gr.State(None)
 
     gr.Markdown(title)
@@ -93,49 +124,95 @@ with gr.Blocks(
     with gr.Row():
         with gr.Column(scale=1.0):
             image_input = gr.Image(type="pil", interactive=True, elem_id="image_upload")
-
-            language = gr.Radio(
-                choices=["English", "Chinese", "French", "Spanish", "Arabic", "Portuguese","Cantonese"],
-                value="English",
-                label="Language",
-                interactive=True,
-            )
-            sentiment = gr.Radio(
-                choices=["Positive", "Negative"],
-                value="Positive",
-                label="Sentiment",
-                interactive=True,
-            )
-            factuality = gr.Radio(
-                choices=["Factual", "Imagination"],
-                value="Factual",
-                label="Factuality",
-                interactive=True,
-            )
-            length = gr.Slider(
-                minimum=5,
-                maximum=100,
-                value=10,
-                step=1,
-                interactive=True,
-                label="Length",
-            )
-
-    with gr.Row(scale=1.5):
-        with gr.Column():
+            with gr.Row(scale=1.0):
+                point_prompt = gr.Radio(
+                    choices=["Positive",  "Negative"],
+                    value="Positive",
+                    label="Point Prompt",
+                    interactive=True)
+                clear_button_clike = gr.Button(value="Clear Clicks", interactive=True)
+                clear_button_image = gr.Button(value="Clear Image", interactive=True)
+            with gr.Row(scale=1.0):
+                language = gr.Dropdown(['English', 'Chinese', 'French', "Spanish", "Arabic", "Portuguese", "Cantonese"], value="English", label="Language", interactive=True)
+               
+                sentiment = gr.Radio(
+                    choices=["Positive", "Natural", "Negative"],
+                    value="Natural",
+                    label="Sentiment",
+                    interactive=True,
+                )
+            with gr.Row(scale=1.0):
+                factuality = gr.Radio(
+                    choices=["Factual", "Imagination"],
+                    value="Factual",
+                    label="Factuality",
+                    interactive=True,
+                )
+                length = gr.Slider(
+                    minimum=10,
+                    maximum=80,
+                    value=10,
+                    step=1,
+                    interactive=True,
+                    label="Length",
+                )
+        
+        with gr.Column(scale=0.5):
+            openai_api_key = gr.Textbox(
+                placeholder="Input your openAI API key and press Enter",
+                show_label=True,
+                label = "OpenAI API Key",
+                lines=1,
+                type="password"
+                )
+            openai_api_key.submit(init_openai_api_key, inputs=[openai_api_key])
+            chatbot = gr.Chatbot(label="Ask Question to the Selected Object",).style(height=620,scale=0.5)
             chat_input = gr.Textbox(lines=1, label="Chat Input")
-    examples = gr.Examples(
-        examples=examples,
-        inputs=[image_input, chat_input],
+            with gr.Row():
+                clear_button_text = gr.Button(value="Clear Text", interactive=True)
+                submit_button_text = gr.Button(value="Submit", interactive=True, variant="primary")
+    clear_button_clike.click(
+        lambda: ([[], [], []]),
+        [],
+        [click_state],
+        queue=False,
+        show_progress=False
+    )
+    clear_button_image.click(
+        lambda: (None, [], [], [[], [], []]),
+        [],
+        [image_input, chatbot, state, click_state],
+        queue=False,
+        show_progress=False
+    )
+    clear_button_text.click(
+        lambda: ([], [], [[], [], []]),
+        [],
+        [chatbot, state, click_state],
+        queue=False,
+        show_progress=False
+    )
+    image_input.clear(
+        lambda: (None, [], [], [[], [], []]),
+        [],
+        [image_input, chatbot, state, click_state],
+        queue=False,
+        show_progress=False
     )
 
+    examples = gr.Examples(
+        examples=examples,
+        inputs=[image_input],
+    )
+
+    chat_input.submit(chat_with_points, [chat_input, click_state, state], [chatbot, state])
     image_input.upload(upload_callback,[image_input, state], [state, origin_image])
 
     # select coordinate
     image_input.select(inference_seg_cap, 
         inputs=[
         origin_image,
-        chat_input,
+        point_prompt,
         language,
         sentiment,
         factuality,
@@ -143,15 +220,8 @@ with gr.Blocks(
         state,
         click_state
         ],
-    outputs=[state, click_state, chat_input, image_input],
+    outputs=[chatbot, state, click_state, chat_input, image_input],
     show_progress=False)
-        
-    image_input.change(
-        lambda: ([], [[], []]),
-        [],
-        [state, click_state],
-        queue=False,
-    )
-
+    
 iface.queue(concurrency_count=1, api_open=False, max_size=10)
 iface.launch(server_name="0.0.0.0", enable_queue=True, server_port=args.port, share=args.gradio_share)
