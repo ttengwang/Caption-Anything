@@ -27,7 +27,11 @@ class CaptionAnything():
         print('seg_mask path: ', mask_save_path)
         print("seg_mask.shape: ", seg_mask.shape)
         #  captioning with mask
-        caption, crop_save_path = self.captioner.inference_seg(image, seg_mask, crop_mode=self.args.seg_crop_mode, filter=self.args.clip_filter, regular_box = self.args.regular_box)
+        if self.args.enable_reduce_tokens:
+            caption = self.captioner.inference_with_reduced_tokens(image, seg_mask, filter=self.args.clip_filter)
+            crop_save_path = None
+        else:
+            caption, crop_save_path = self.captioner.inference_seg(image, seg_mask, crop_mode=self.args.seg_crop_mode, filter=self.args.clip_filter, regular_box = self.args.regular_box)
         #  refining with TextRefiner
         context_captions = []
         if self.args.context_captions:
@@ -57,6 +61,7 @@ def parse_augment():
     parser.add_argument('--debug', action="store_true")
     parser.add_argument('--gradio_share', action="store_true")
     parser.add_argument('--disable_gpt', action="store_true")
+    parser.add_argument('--enable_reduce_tokens', action="store_true", default=False)
     args = parser.parse_args()
 
     if args.debug:
