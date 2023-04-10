@@ -8,9 +8,14 @@ import json
 import sys
 import argparse
 from caas import parse_augment
+import numpy as np
+import PIL.ImageDraw as ImageDraw
+from image_editing_utils import create_bubble_frame
+import copy
+from tools import mask_painter
+from PIL import Image
 import os
 
-# download sam checkpoint if not downloaded
 def download_checkpoint(url, folder, filename):
     os.makedirs(folder, exist_ok=True)
     filepath = os.path.join(folder, filename)
@@ -27,16 +32,31 @@ checkpoint_url = "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b89
 folder = "segmenter"
 filename = "sam_vit_h_4b8939.pth"
 
+download_checkpoint(checkpoint_url, folder, filename)
+
+
 title = """<h1 align="center">Caption-Anything</h1>"""
-description = """Gradio demo for Caption Anything, image to dense captioning generation with various language styles. To use it, simply upload your image, or click one of the examples to load them.
-<br> <strong>Code</strong>: GitHub repo: <a href='https://github.com/ttengwang/Caption-Anything' target='_blank'></a>
+description = """Gradio demo for Caption Anything, image to dense captioning generation with various language styles. To use it, simply upload your image, or click one of the examples to load them. Code: https://github.com/ttengwang/Caption-Anything
 """
 
 examples = [
-    ["test_img/img2.jpg", "[[1000, 700, 1]]"]
+    ["test_img/img2.jpg"],
+    ["test_img/img5.jpg"],
+    ["test_img/img12.jpg"],
+    ["test_img/img14.jpg"],
 ]
 
 args = parse_augment()
+# args.device = 'cuda:5'
+# args.disable_gpt = False
+# args.enable_reduce_tokens = True
+# args.port=20322
+model = CaptionAnything(args)
+
+def init_openai_api_key(api_key):
+    os.environ['OPENAI_API_KEY'] = api_key
+    model.init_refiner()
+
 
 def get_prompt(chat_input, click_state):    
     points = click_state[0]
@@ -53,101 +73,110 @@ def get_prompt(chat_input, click_state):
         "multimask_output":"True",
     }
     return prompt
-    
-def inference_seg_cap(image_input, chat_input, language, sentiment, factuality, length, state, click_state):
-    controls = {'length': length,
-             'sentiment': sentiment,
-             'factuality': factuality,
-             'language': language}
-    prompt = get_prompt(chat_input, click_state)
-    print('prompt: ', prompt, 'controls: ', controls)
-    out = model.inference(image_input, prompt, controls)
-    state = state + [(None, "Image point: {}, Input label: {}".format(prompt["input_point"], prompt["input_label"]))]
-    for k, v in out['generated_captions'].items():
-        state = state + [(f'{k}: {v}', None)]
-    click_state[2].append(out['generated_captions']['raw_caption'])
-    image_output_mask = out['mask_save_path']
-    image_output_crop = out['crop_save_path']
-    return state, state, click_state, image_output_mask, image_output_crop
-
-
-def upload_callback(image_input, state):
-    state = state + [('Image size: ' + str(image_input.size), None)]
-    return state
-
-# get coordinate in format [[x,y,positive/negative]]
-def get_select_coords(image_input, point_prompt, language, sentiment, factuality, length, state, click_state, evt: gr.SelectData):
-        print("point_prompt: ", point_prompt)
-        if point_prompt == 'Positive Point':
-            coordinate = "[[{}, {}, 1]]".format(str(evt.index[0]), str(evt.index[1]))
-        else:
-            coordinate = "[[{}, {}, 0]]".format(str(evt.index[0]), str(evt.index[1]))
-        return (coordinate,) + inference_seg_cap(image_input, coordinate, language, sentiment, factuality, length, state, click_state)
 
 def chat_with_points(chat_input, click_state, state):
+    if not hasattr(model, "text_refiner"):
+        response = "Text refiner is not initilzed, please input openai api key."
+        state = state + [(chat_input, response)]
+        return state, state
+    
     points, labels, captions = click_state
-    point_chat_prompt = "I want you act as a chat bot in terms of image. I will give you some points (w, h) in the image and tell you what happed on the point in natural language. Note that (0, 0) refers to the top-left corner of the image, w refers to the width and h refers the height. You should chat with me based on the fact in the image instead of imagination. Now I tell you the points with their visual description:\n{points_with_caps}\n. Now begin chatting! Human: {chat_input}\nAI: "
+    point_chat_prompt = "I want you act as a chat bot in terms of image. I will give you some points (w, h) in the image and tell you what happed on the point in natural language. Note that (0, 0) refers to the top-left corner of the image, w refers to the width and h refers the height. You should chat with me based on the fact in the image instead of imagination. Now I tell you the points with their visual description:\n{points_with_caps}\nNow begin chatting! Human: {chat_input}\nAI: "
     # "The image is of width {width} and height {height}." 
     
     prev_visual_context = ""
     pos_points = [f"{points[i][0]}, {points[i][1]}" for i in range(len(points)) if labels[i] == 1]
-    prev_visual_context = ', '.join(pos_points) + captions[-1] + '\n'
+    if len(captions):
+        prev_visual_context = ', '.join(pos_points) + captions[-1] + '\n'
+    else:
+        prev_visual_context = 'no point exists.'
     chat_prompt = point_chat_prompt.format(**{"points_with_caps": prev_visual_context, "chat_input": chat_input})
     response = model.text_refiner.llm(chat_prompt)
     state = state + [(chat_input, response)]
     return state, state
 
-def init_openai_api_key(api_key):
-    os.environ['OPENAI_API_KEY'] = api_key
-    global model
-    model = CaptionAnything(args)
+def inference_seg_cap(image_input, point_prompt, language, sentiment, factuality, length, state, click_state, evt:gr.SelectData):
 
-css='''
-#image_upload{min-height:200px}
-#image_upload [data-testid="image"], #image_upload [data-testid="image"] > div{min-height: 200px}
-'''
+    if point_prompt == 'Positive':
+        coordinate = "[[{}, {}, 1]]".format(str(evt.index[0]), str(evt.index[1]))
+    else:
+        coordinate = "[[{}, {}, 0]]".format(str(evt.index[0]), str(evt.index[1]))
+        
+    controls = {'length': length,
+             'sentiment': sentiment,
+             'factuality': factuality,
+             'language': language}
 
-with gr.Blocks(css=css) as iface:
+    # click_coordinate = "[[{}, {}, 1]]".format(str(evt.index[0]), str(evt.index[1])) 
+    # chat_input = click_coordinate
+    prompt = get_prompt(coordinate, click_state)
+    print('prompt: ', prompt, 'controls: ', controls)
+
+    out = model.inference(image_input, prompt, controls)
+    state = state + [(None, "Image point: {}, Input label: {}".format(prompt["input_point"], prompt["input_label"]))]
+    for k, v in out['generated_captions'].items():
+        state = state + [(f'{k}: {v}', None)]
+    
+    click_state[2].append(out['generated_captions']['raw_caption'])
+    
+    text = out['generated_captions']['raw_caption']
+    # draw = ImageDraw.Draw(image_input)
+    # draw.text((evt.index[0], evt.index[1]), text, textcolor=(0,0,255), text_size=120)
+    input_mask = np.array(Image.open(out['mask_save_path']).convert('P'))
+    image_input = mask_painter(np.array(image_input), input_mask)
+    origin_image_input = image_input
+    image_input = create_bubble_frame(image_input, text, (evt.index[0], evt.index[1]))
+
+    yield state, state, click_state, chat_input, image_input
+    if not args.disable_gpt and hasattr(model, "text_refiner"):
+        refined_caption = model.text_refiner.inference(query=text, controls=controls, context=out['context_captions'])
+        new_cap = 'Original: ' + text + '. Refined: ' + refined_caption['caption']
+        refined_image_input = create_bubble_frame(origin_image_input, new_cap, (evt.index[0], evt.index[1]))
+        yield state, state, click_state, chat_input, refined_image_input
+
+
+def upload_callback(image_input, state):
+    state = [] + [('Image size: ' + str(image_input.size), None)]
+    click_state = [[], [], []]
+    model.segmenter.image = None
+    model.segmenter.image_embedding = None
+    model.segmenter.set_image(image_input)
+    return state, image_input, click_state
+
+with gr.Blocks(
+    css='''
+    #image_upload{min-height:400px}
+    #image_upload [data-testid="image"], #image_upload [data-testid="image"] > div{min-height: 600px}
+    '''
+) as iface:
     state = gr.State([])
     click_state = gr.State([[],[],[]])
-    caption_state = gr.State([[]])
+    origin_image = gr.State(None)
+
     gr.Markdown(title)
     gr.Markdown(description)
 
-    with gr.Column():
-        openai_api_key = gr.Textbox(
-            placeholder="Input your openAI API key and press Enter",
-            show_label=False,
-            lines=1,
-            type="password",
-        )
-        openai_api_key.submit(init_openai_api_key, inputs=[openai_api_key])
-        
-        with gr.Row():
-            with gr.Column(scale=0.7):
-                image_input = gr.Image(type="pil", interactive=True, label="Image", elem_id="image_upload").style(height=260,scale=1.0)
-
-                with gr.Row(scale=0.7):
-                    point_prompt = gr.Radio(
-                        choices=["Positive Point",  "Negative Point"],
-                        value="Positive Point",
-                        label="Points",
-                        interactive=True,
-                    )
-                
-                # with gr.Row():
-                language = gr.Radio(
-                    choices=["English", "Chinese", "French", "Spanish", "Arabic", "Portuguese","Cantonese"],
-                    value="English",
-                    label="Language",
-                    interactive=True,
-                )
+    with gr.Row():
+        with gr.Column(scale=1.0):
+            image_input = gr.Image(type="pil", interactive=True, elem_id="image_upload")
+            with gr.Row(scale=1.0):
+                point_prompt = gr.Radio(
+                    choices=["Positive",  "Negative"],
+                    value="Positive",
+                    label="Point Prompt",
+                    interactive=True)
+                clear_button_clike = gr.Button(value="Clear Clicks", interactive=True)
+                clear_button_image = gr.Button(value="Clear Image", interactive=True)
+            with gr.Row(scale=1.0):
+                language = gr.Dropdown(['English', 'Chinese', 'French', "Spanish", "Arabic", "Portuguese", "Cantonese"], value="English", label="Language", interactive=True)
+               
                 sentiment = gr.Radio(
                     choices=["Positive", "Natural", "Negative"],
                     value="Natural",
                     label="Sentiment",
                     interactive=True,
                 )
+            with gr.Row(scale=1.0):
                 factuality = gr.Radio(
                     choices=["Factual", "Imagination"],
                     value="Factual",
@@ -155,107 +184,80 @@ with gr.Blocks(css=css) as iface:
                     interactive=True,
                 )
                 length = gr.Slider(
-                    minimum=5,
-                    maximum=100,
+                    minimum=10,
+                    maximum=80,
                     value=10,
                     step=1,
                     interactive=True,
                     label="Length",
                 )
-
-            with gr.Column(scale=1.5):
-                with gr.Row():
-                    image_output_mask= gr.Image(type="pil", interactive=False, label="Mask").style(height=260,scale=1.0)
-                    image_output_crop= gr.Image(type="pil", interactive=False, label="Cropped Image by Mask", show_progress=False).style(height=260,scale=1.0)
-                chatbot = gr.Chatbot(label="Chat Output",).style(height=450,scale=0.5)
         
-        with gr.Row():
-            with gr.Column(scale=0.7):
-                prompt_input = gr.Textbox(lines=1, label="Input Prompt (A list of points like : [[100, 200, 1], [200,300,0]])")
-                prompt_input.submit(
-                    inference_seg_cap,
-                    [
-                        image_input,
-                        prompt_input,
-                        language,
-                        sentiment,
-                        factuality,
-                        length,
-                        state,
-                        click_state
-                    ],
-                    [chatbot, state, click_state, image_output_mask, image_output_crop],
-                    show_progress=False
+        with gr.Column(scale=0.5):
+            openai_api_key = gr.Textbox(
+                placeholder="Input your openAI API key and press Enter",
+                show_label=True,
+                label = "OpenAI API Key",
+                lines=1,
+                type="password"
                 )
-                
-                image_input.upload(
-                    upload_callback,
-                    [image_input, state],
-                    [chatbot]
-                    )
-
-                with gr.Row():
-                    clear_button = gr.Button(value="Clear Click", interactive=True)
-                    clear_button.click(
-                        lambda: ("", [[], [], []], None, None),
-                        [],
-                        [prompt_input, click_state, image_output_mask, image_output_crop],
-                        queue=False,
-                        show_progress=False
-                    )
-                    
-                    clear_button = gr.Button(value="Clear", interactive=True)
-                    clear_button.click(
-                        lambda: ("", [], [], [[], [], []], None, None),
-                        [],
-                        [prompt_input, chatbot, state, click_state, image_output_mask, image_output_crop],
-                        queue=False,
-                        show_progress=False
-                    )
-                    
-                    submit_button = gr.Button(
-                        value="Submit", interactive=True, variant="primary"
-                    )
-                    submit_button.click(
-                        inference_seg_cap,
-                        [
-                            image_input,
-                            prompt_input,
-                            language,
-                            sentiment,
-                            factuality,
-                            length,
-                            state,
-                            click_state
-                        ],
-                        [chatbot, state, click_state, image_output_mask, image_output_crop],
-                        show_progress=False
-                    )
-                    
-                # select coordinate
-                image_input.select(
-                    get_select_coords, 
-                    inputs=[image_input,point_prompt,language,sentiment,factuality,length,state,click_state], 
-                    outputs=[prompt_input, chatbot, state, click_state, image_output_mask, image_output_crop],
-                    show_progress=False
-                    )
-
-                image_input.change(
-                    lambda: ("", [], [[], [], []]),
-                    [],
-                    [chatbot, state, click_state],
-                    queue=False,
-                )
-                
-            with gr.Column(scale=1.5):
-                chat_input = gr.Textbox(lines=1, label="Chat Input")
-                chat_input.submit(chat_with_points, [chat_input, click_state, state], [chatbot, state])
-                
-                    
-    examples = gr.Examples(
-        examples=examples,
-        inputs=[image_input, prompt_input],
+            openai_api_key.submit(init_openai_api_key, inputs=[openai_api_key])
+            chatbot = gr.Chatbot(label="Chat about Selected Object",).style(height=620,scale=0.5)
+            chat_input = gr.Textbox(lines=1, label="Chat Input")
+            with gr.Row():
+                clear_button_text = gr.Button(value="Clear Text", interactive=True)
+                submit_button_text = gr.Button(value="Submit", interactive=True, variant="primary")
+    clear_button_clike.click(
+        lambda: ([[], [], []]),
+        [],
+        [click_state],
+        queue=False,
+        show_progress=False
+    )
+    clear_button_image.click(
+        lambda: (None, [], [], [[], [], []]),
+        [],
+        [image_input, chatbot, state, click_state],
+        queue=False,
+        show_progress=False
+    )
+    clear_button_text.click(
+        lambda: ([], [], [[], [], []]),
+        [],
+        [chatbot, state, click_state],
+        queue=False,
+        show_progress=False
+    )
+    image_input.clear(
+        lambda: (None, [], [], [[], [], []]),
+        [],
+        [image_input, chatbot, state, click_state],
+        queue=False,
+        show_progress=False
     )
 
+    examples = gr.Examples(
+        examples=examples,
+        inputs=[image_input],
+    )
+
+    image_input.upload(upload_callback,[image_input, state], [state, origin_image, click_state])
+    chat_input.submit(chat_with_points, [chat_input, click_state, state], [chatbot, state])
+
+    # select coordinate
+    image_input.select(inference_seg_cap, 
+        inputs=[
+        origin_image,
+        point_prompt,
+        language,
+        sentiment,
+        factuality,
+        length,
+        state,
+        click_state
+        ],
+
+    outputs=[chatbot, state, click_state, chat_input, image_input],
+    show_progress=False, queue=True)
+    
 iface.queue(concurrency_count=1, api_open=False, max_size=10)
 iface.launch(server_name="0.0.0.0", enable_queue=True, server_port=args.port, share=args.gradio_share)
