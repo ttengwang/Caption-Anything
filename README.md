@@ -18,7 +18,8 @@ Caption-Anything supports both visual controls and textual controls:
 * Template sentence
 
 ### CAAS
-You can canption any object in the image with any style!
+You can canption any object in the image with any style! See exapmle:
+![](./Image/demo1.svg)
 
 ### More Examples
 ![](./Image/demo2.svg)
