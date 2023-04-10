@@ -131,7 +131,7 @@ def inference_seg_cap(image_input, point_prompt, language, sentiment, factuality
 
 def upload_callback(image_input, state):
     state = [] + [('Image size: ' + str(image_input.size), None)]
-    click_state = [[], []]
+    click_state = [[], [], []]
     model.segmenter.image = None
     model.segmenter.image_embedding = None
     model.segmenter.set_image(image_input)
