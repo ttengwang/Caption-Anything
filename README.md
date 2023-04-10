@@ -26,7 +26,7 @@ You can canption any object in the image with any style! See exapmle:
 
 # Environment setup
 ```
-# change the openai api-key value in env.sh
+# Automatically install the environment from "conda env create caption_anything" to "pip install wheels" 
 bash env.sh
 ```
 
@@ -45,4 +45,7 @@ export OPENAI_API_BASE=https://openai.1rmb.tk/v1/
 # run caption-anything model
 python caas.py 
 python caas.py --seg_crop_mode wo_bg --clip_filter # remove the background pixels for captioning, remove bad captions via clip filter
+
+# run demo, use "python app.py -h" to see the args
+python app.py
 ```
