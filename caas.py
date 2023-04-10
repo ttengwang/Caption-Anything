@@ -28,8 +28,7 @@ class CaptionAnything():
         print("seg_mask.shape: ", seg_mask.shape)
         #  captioning with mask
         if self.args.enable_reduce_tokens:
-            caption = self.captioner.inference_with_reduced_tokens(image, seg_mask, filter=self.args.clip_filter)
-            crop_save_path = None
+            caption, crop_save_path = self.captioner.inference_with_reduced_tokens(image, seg_mask, crop_mode=self.args.seg_crop_mode, filter=self.args.clip_filter, regular_box = self.args.regular_box)
         else:
             caption, crop_save_path = self.captioner.inference_seg(image, seg_mask, crop_mode=self.args.seg_crop_mode, filter=self.args.clip_filter, regular_box = self.args.regular_box)
         #  refining with TextRefiner

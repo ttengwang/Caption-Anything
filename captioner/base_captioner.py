@@ -155,8 +155,38 @@ class BaseCaptioner:
         else:
             min_area_box = seg_to_box(seg_mask)
         return self.inference_box(image, min_area_box, filter)
-        
+    
 
+    def generate_seg_cropped_image(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str], crop_mode="w_bg", regular_box = False):
+        if type(image) == str:
+            image = Image.open(image)
+        if type(seg_mask) == str:
+            seg_mask = Image.open(seg_mask)
+        elif type(seg_mask) == np.ndarray:
+            seg_mask = Image.fromarray(seg_mask)
+        seg_mask = seg_mask.resize(image.size)
+        seg_mask = np.array(seg_mask) > 0
+
+        if crop_mode=="wo_bg":
+            image = np.array(image) * seg_mask[:,:,np.newaxis]
+        else:
+            image = np.array(image)
+
+        if regular_box:
+            box = new_seg_to_box(seg_mask)
+        else:
+            box = seg_to_box(seg_mask)
+        
+        if np.array(box).size == 4: # [x0, y0, x1, y1], where (x0, y0), (x1, y1) represent top-left and bottom-right corners
+            size = max(image.width, image.height)
+            x1, y1, x2, y2 = box
+            image_crop = np.array(image.crop((x1 * size, y1 * size, x2 * size, y2 * size)))  
+        elif np.array(box).size == 8: # four corners of an irregular rectangle
+            image_crop = cut_box(np.array(image), box)
+        crop_save_path = f'result/crop_{time.time()}.png'
+        Image.fromarray(image_crop).save(crop_save_path)
+        print(f'croped image saved in {crop_save_path}')
+        return crop_save_path
 
         
 if __name__ == '__main__':

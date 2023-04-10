@@ -29,7 +29,8 @@ class GITCaptioner(BaseCaptioner):
         return generated_caption
 
     @torch.no_grad()
-    def inference_with_reduced_tokens(self, image: Union[np.ndarray, Image.Image, str], seg_mask, filter: bool=False):
+    def inference_with_reduced_tokens(self, image: Union[np.ndarray, Image.Image, str], seg_mask, crop_mode="w_bg", filter=False, regular_box = False):
+        crop_save_path = self.generate_seg_cropped_image(image=image, seg_mask=seg_mask, crop_mode=crop_mode, regular_box=regular_box)
         if type(image) == str: # input path
             image = Image.open(image)
         inputs = self.processor(images=image, return_tensors="pt")
@@ -45,7 +46,7 @@ class GITCaptioner(BaseCaptioner):
         if self.enable_filter and filter:
             captions = self.filter_caption(image, captions)
         print(f"\nProcessed ImageCaptioning by BLIPCaptioner, Output Text: {captions}")
-        return captions
+        return captions, crop_save_path
 
 if __name__ == '__main__':
     model = GITCaptioner(device='cuda:2', enable_filter=False)
