@@ -6,9 +6,10 @@
 * Interactive demo
 ![](./Image/UI.png)
 
-<a src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" href="https://huggingface.co/spaces/wybertwang/Caption-Anything">
+<!-- <a src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" href="https://huggingface.co/spaces/wybertwang/Caption-Anything">
     <img src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" alt="Open in Spaces">
-</a>
+</a> -->
+
 <!-- <a src="https://colab.research.google.com/assets/colab-badge.svg" href="">
     <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab">
 </a> -->
