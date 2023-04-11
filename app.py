@@ -116,7 +116,7 @@ def inference_seg_cap(image_input, point_prompt, language, sentiment, factuality
     state = state + [(None, "Image point: {}, Input label: {}".format(prompt["input_point"], prompt["input_label"]))]
     # for k, v in out['generated_captions'].items():
     #     state = state + [(f'{k}: {v}', None)]
-    state = state + [("caption: {}".format(out['generated_captions']['caption']), None)]
+    state = state + [("caption: {}".format(out['generated_captions']['raw_caption']), None)]
     wiki = out['generated_captions'].get('wiki', "")
     click_state[2].append(out['generated_captions']['raw_caption'])
     
