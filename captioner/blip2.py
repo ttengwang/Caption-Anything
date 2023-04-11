@@ -22,7 +22,8 @@ class BLIP2Captioner(BaseCaptioner):
                 image = Image.open(image)
 
         if not self.dialogue:
-            inputs = self.processor(image, text = 'Ignore the black background! This is a photo of ', return_tensors="pt").to(self.device, self.torch_dtype)
+            text_prompt = 'Context: ignore the white background in this image. Question: what is the caption of this image? Answer:'
+            inputs = self.processor(image, text = text_prompt, return_tensors="pt").to(self.device, self.torch_dtype)
             out = self.model.generate(**inputs, max_new_tokens=50)
             captions = self.processor.decode(out[0], skip_special_tokens=True)
             if self.enable_filter and filter:
