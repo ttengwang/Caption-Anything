@@ -1,5 +1,5 @@
 # Caption Anything in Any Style
-![](./Image/title.svg)
+![](./Image/title.png)
 
 We build an appealing demo by combining [Segment Anything](https://github.com/facebookresearch/segment-anything), Visual Captioning, and [ChatGPT](), which is capable to caption any pieces in the image in various language styles.
 
@@ -19,10 +19,10 @@ Caption-Anything supports both visual controls and textual controls:
 
 ### CAAS
 You can canption any object in the image with any style! See exapmle:
-![](./Image/demo1.svg)
+![](./Image/demo1.png)
 
 ### More Examples
-![](./Image/demo2.svg)
+![](./Image/demo2.png)
 
 # Environment setup
 ```
