@@ -146,7 +146,8 @@ class BaseCaptioner:
         seg_mask = np.array(seg_mask) > 0
         
         if crop_mode=="wo_bg":
-            image = np.array(image) * seg_mask[:,:,np.newaxis]
+            image = np.array(image) * seg_mask[:,:,np.newaxis] + (1 - seg_mask[:,:,np.newaxis]) * 255
+            image = np.uint8(image)
         else:
             image = np.array(image)
 

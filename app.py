@@ -140,10 +140,16 @@ def inference_seg_cap(image_input, point_prompt, language, sentiment, factuality
 def upload_callback(image_input, state):
     state = [] + [('Image size: ' + str(image_input.size), None)]
     click_state = [[], [], []]
+    res = 1024
+    width, height = image_input.size
+    ratio = min(1.0 * res / max(width, height), 1.0)
+    if ratio < 1.0:
+        image_input = image_input.resize((int(width * ratio), int(height * ratio)))
+        print('Scaling input image to {}'.format(image_input.size))
     model.segmenter.image = None
     model.segmenter.image_embedding = None
     model.segmenter.set_image(image_input)
-    return state, image_input, click_state
+    return state, image_input, click_state, image_input
 
 with gr.Blocks(
     css='''
@@ -243,7 +249,7 @@ with gr.Blocks(
         inputs=[image_input],
     )
 
-    image_input.upload(upload_callback,[image_input, state], [state, origin_image, click_state])
+    image_input.upload(upload_callback,[image_input, state], [state, origin_image, click_state, image_input])
     chat_input.submit(chat_with_points, [chat_input, click_state, state], [chatbot, state])
 
     # select coordinate

@@ -155,12 +155,6 @@ def mask_painter(input_image, input_mask, background_alpha=0.7, background_blur_
 	assert input_image.shape[:2] == input_mask.shape, 'different shape'
 	assert background_blur_radius % 2 * contour_width % 2 > 0, 'background_blur_radius and contour_width must be ODD'
 
-	# downsample input image and mask
-	width, height = input_image.shape[0], input_image.shape[1]
-	res = 1024
-	ratio = min(1.0 * res / max(width, height), 1.0)  
-	input_image = cv2.resize(input_image, (int(height*ratio), int(width*ratio)))
-	input_mask = cv2.resize(input_mask, (int(height*ratio), int(width*ratio)))
 	
 	# 0: background, 1: foreground
 	input_mask[input_mask>0] = 255
@@ -175,8 +169,6 @@ def mask_painter(input_image, input_mask, background_alpha=0.7, background_blur_
 	contour_mask = cv2.dilate(contour_mask, kernel)
 	painted_image = vis_add_mask(painted_image, 255-contour_mask, color_list[contour_color], contour_alpha, contour_width)
 
-	# upsample painted image back to original resolution
-	painted_image = cv2.resize(painted_image, (height, width))
 	# painted_image = background_dist_map
 	
 	return painted_image
