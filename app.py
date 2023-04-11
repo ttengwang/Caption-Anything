@@ -2,12 +2,12 @@ from io import BytesIO
 import string
 import gradio as gr
 import requests
-from caas import CaptionAnything
+from caption_anything import CaptionAnything
 import torch
 import json
 import sys
 import argparse
-from caas import parse_augment
+from caption_anything import parse_augment
 import numpy as np
 import PIL.ImageDraw as ImageDraw
 from image_editing_utils import create_bubble_frame
@@ -81,9 +81,9 @@ def chat_with_points(chat_input, click_state, state):
         return state, state
     
     points, labels, captions = click_state
-    point_chat_prompt = "I want you act as a chat bot in terms of image. I will give you some points (w, h) in the image and tell you what happed on the point in natural language. Note that (0, 0) refers to the top-left corner of the image, w refers to the width and h refers the height. You should chat with me based on the fact in the image instead of imagination. Now I tell you the points with their visual description:\n{points_with_caps}\nNow begin chatting! Human: {chat_input}\nAI: "
-    # "The image is of width {width} and height {height}." 
-    
+    # point_chat_prompt = "I want you act as a chat bot in terms of image. I will give you some points (w, h) in the image and tell you what happed on the point in natural language. Note that (0, 0) refers to the top-left corner of the image, w refers to the width and h refers the height. You should chat with me based on the fact in the image instead of imagination. Now I tell you the points with their visual description:\n{points_with_caps}\nNow begin chatting! Human: {chat_input}\nAI: "
+    # # "The image is of width {width} and height {height}." 
+    point_chat_prompt = "a) Revised prompt: I am an AI trained to chat with you about an image based on specific points (w, h) you provide, along with their visual descriptions. Please note that (0, 0) refers to the top-left corner of the image, w refers to the width, and h refers to the height. Here are the points and their descriptions you've given me: {points_with_caps}. Now, let's chat! Human: {chat_input} AI:"
     prev_visual_context = ""
     pos_points = [f"{points[i][0]}, {points[i][1]}" for i in range(len(points)) if labels[i] == 1]
     if len(captions):
@@ -114,9 +114,10 @@ def inference_seg_cap(image_input, point_prompt, language, sentiment, factuality
 
     out = model.inference(image_input, prompt, controls)
     state = state + [(None, "Image point: {}, Input label: {}".format(prompt["input_point"], prompt["input_label"]))]
-    for k, v in out['generated_captions'].items():
-        state = state + [(f'{k}: {v}', None)]
-    
+    # for k, v in out['generated_captions'].items():
+    #     state = state + [(f'{k}: {v}', None)]
+    state = state + [("caption: {}".format(out['generated_captions']['caption']), None)]
+    wiki = out['generated_captions'].get('wiki', "")
     click_state[2].append(out['generated_captions']['raw_caption'])
     
     text = out['generated_captions']['raw_caption']
@@ -127,12 +128,13 @@ def inference_seg_cap(image_input, point_prompt, language, sentiment, factuality
     origin_image_input = image_input
     image_input = create_bubble_frame(image_input, text, (evt.index[0], evt.index[1]))
 
-    yield state, state, click_state, chat_input, image_input
+    yield state, state, click_state, chat_input, image_input, wiki
     if not args.disable_gpt and hasattr(model, "text_refiner"):
         refined_caption = model.text_refiner.inference(query=text, controls=controls, context=out['context_captions'])
-        new_cap = 'Original: ' + text + '. Refined: ' + refined_caption['caption']
+        # new_cap = 'Original: ' + text + '. Refined: ' + refined_caption['caption']
+        new_cap = refined_caption['caption']
         refined_image_input = create_bubble_frame(origin_image_input, new_cap, (evt.index[0], evt.index[1]))
-        yield state, state, click_state, chat_input, refined_image_input
+        yield state, state, click_state, chat_input, refined_image_input, wiki
 
 
 def upload_callback(image_input, state):
@@ -195,28 +197,29 @@ with gr.Blocks(
         with gr.Column(scale=0.5):
             openai_api_key = gr.Textbox(
                 placeholder="Input your openAI API key and press Enter",
-                show_label=True,
+                show_label=False,
                 label = "OpenAI API Key",
                 lines=1,
                 type="password"
                 )
             openai_api_key.submit(init_openai_api_key, inputs=[openai_api_key])
-            chatbot = gr.Chatbot(label="Chat about Selected Object",).style(height=620,scale=0.5)
+            wiki_output = gr.Textbox(lines=6, label="Wiki")
+            chatbot = gr.Chatbot(label="Chat about Selected Object",).style(height=450,scale=0.5)
             chat_input = gr.Textbox(lines=1, label="Chat Input")
             with gr.Row():
                 clear_button_text = gr.Button(value="Clear Text", interactive=True)
                 submit_button_text = gr.Button(value="Submit", interactive=True, variant="primary")
     clear_button_clike.click(
-        lambda x: ([[], [], []], x),
+        lambda x: ([[], [], []], x, ""),
         [origin_image],
-        [click_state, image_input],
+        [click_state, image_input, wiki_output],
         queue=False,
         show_progress=False
     )
     clear_button_image.click(
-        lambda: (None, [], [], [[], [], []]),
+        lambda: (None, [], [], [[], [], []], ""),
         [],
-        [image_input, chatbot, state, click_state],
+        [image_input, chatbot, state, click_state, wiki_output],
         queue=False,
         show_progress=False
     )
@@ -228,9 +231,9 @@ with gr.Blocks(
         show_progress=False
     )
     image_input.clear(
-        lambda: (None, [], [], [[], [], []]),
+        lambda: (None, [], [], [[], [], []], ""),
         [],
-        [image_input, chatbot, state, click_state],
+        [image_input, chatbot, state, click_state, wiki_output],
         queue=False,
         show_progress=False
     )
@@ -255,9 +258,8 @@ with gr.Blocks(
         state,
         click_state
         ],
-
-    outputs=[chatbot, state, click_state, chat_input, image_input],
-    show_progress=False, queue=True)
+        outputs=[chatbot, state, click_state, chat_input, image_input, wiki_output],
+        show_progress=False, queue=True)
     
 iface.queue(concurrency_count=1, api_open=False, max_size=10)
 iface.launch(server_name="0.0.0.0", enable_queue=True, server_port=args.port, share=args.gradio_share)

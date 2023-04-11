@@ -17,7 +17,7 @@ def wrap_text(text, font, max_width):
     lines.append(current_line)
     return lines
 
-def create_bubble_frame(image, text, point, font_path='DejaVuSansCondensed-Bold.ttf', font_size_ratio=0.033):
+def create_bubble_frame(image, text, point, font_path='DejaVuSansCondensed-Bold.ttf', font_size_ratio=0.025):
     # Load the image
     if type(image) == np.ndarray:
         image = Image.fromarray(image)
@@ -27,7 +27,7 @@ def create_bubble_frame(image, text, point, font_path='DejaVuSansCondensed-Bold.
 
     # Calculate max_text_width and font_size based on image dimensions and total number of characters
     total_chars = len(text)
-    max_text_width = int(0.33 * width)
+    max_text_width = int(0.4 * width)
     font_size = int(height * font_size_ratio)
 
     # Load the font

@@ -1,51 +1,45 @@
-# Caption Anything in Any Style
-![](./Image/title.svg)
+# Caption-Anything
+<!-- ![](./Image/title.svg) -->
+**Caption-Anything** is a versatile image processing tool that combines the capabilities of [Segment Anything](https://github.com/facebookresearch/segment-anything), Visual Captioning, and [ChatGPT](https://openai.com/blog/chatgpt). Our solution generates descriptive captions for any object within an image, offering a range of language styles to accommodate diverse user preferences. **Caption-Anything** supports visual controls (mouse click) and textual controls (length, sentiment, factuality, and language).
 
-We build an appealing demo by combining [Segment Anything](https://github.com/facebookresearch/segment-anything), Visual Captioning, and [ChatGPT](), which is capable to caption any pieces in the image in various language styles.
+<a src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" href="https://huggingface.co/spaces/wybertwang/Caption-Anything">
+    <img src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" alt="Open in Spaces">
+</a>
+<!-- <a src="https://colab.research.google.com/assets/colab-badge.svg" href="">
+    <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab">
+</a> -->
 
-Caption-Anything supports both visual controls and textual controls: 
-### Visual Controls
-* Click
-* Box
-* Everything
-* Cutouts
-* Track
+### Demo
+Explore the interactive demo of Caption-Anything, which showcases its powerful capabilities in generating captions for various objects within an image. The demo allows users to control visual aspects by clicking on objects, as well as to adjust textual properties such as length, sentiment, factuality, and language.
+<div align=left>
+<img src="./Image/demo1.svg" width="800" />
+</div>
 
-### Language Controls
-* Length
-* Sentiment
-* Wikipedia Search
-* Template sentence
+---
 
-### CAAS
-You can canption any object in the image with any style! See exapmle:
-![](./Image/demo1.svg)
+<div align=center>
+<img src="./Image/demo2.svg" width="500" />
+</div>
 
-### More Examples
-![](./Image/demo2.svg)
+### Getting Started
 
-# Environment setup
+To start using Caption-Anything, follow these steps:
+* Clone the repository:
+```bash
+git clone https://github.com/tengwang/caption-anything.git
 ```
-# Automatically install the environment from "conda env create caption_anything" to "pip install wheels" 
-bash env.sh
+* Install dependencies:
+```bash
+cd caption-anything
+pip install -r requirements.txt
 ```
-
-
-# RUN
-```
-# (optional) set transformer cache dir
-export HUGGINGFACE_HUB_CACHE=/your/path/to/cache/
-
-# set openai api key
+* Set up and configure the necessary APIs and modules
+```bash
 export OPENAI_API_KEY={Your_Private_Openai_Key}
-
-# (optional) set the proxy api if you can not access official api (https://api.openai.com/v1)
-export OPENAI_API_BASE=https://openai.1rmb.tk/v1/
-
-# run caption-anything model
-python caas.py 
-python caas.py --seg_crop_mode wo_bg --clip_filter # remove the background pixels for captioning, remove bad captions via clip filter
-
-# run demo, use "python app.py -h" to see the args
-python app.py
 ```
+* Run the Caption-Anything gradio demo.
+```bash
+python app.py --regular_box  --port 6086
+```
+
+

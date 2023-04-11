@@ -2,12 +2,12 @@ from io import BytesIO
 import string
 import gradio as gr
 import requests
-from caas import CaptionAnything
+from caption_anything import CaptionAnything
 import torch
 import json
 import sys
 import argparse
-from caas import parse_augment
+from caption_anything import parse_augment
 import os
 
 # download sam checkpoint if not downloaded
@@ -83,12 +83,12 @@ def get_select_coords(image_input, point_prompt, language, sentiment, factuality
         else:
             coordinate = "[[{}, {}, 0]]".format(str(evt.index[0]), str(evt.index[1]))
         return (coordinate,) + inference_seg_cap(image_input, coordinate, language, sentiment, factuality, length, state, click_state)
-
+    
 def chat_with_points(chat_input, click_state, state):
     points, labels, captions = click_state
-    point_chat_prompt = "I want you act as a chat bot in terms of image. I will give you some points (w, h) in the image and tell you what happed on the point in natural language. Note that (0, 0) refers to the top-left corner of the image, w refers to the width and h refers the height. You should chat with me based on the fact in the image instead of imagination. Now I tell you the points with their visual description:\n{points_with_caps}\n. Now begin chatting! Human: {chat_input}\nAI: "
+    # point_chat_prompt = "I want you act as a chat bot in terms of image. I will give you some points (w, h) in the image and tell you what happed on the point in natural language. Note that (0, 0) refers to the top-left corner of the image, w refers to the width and h refers the height. You should chat with me based on the fact in the image instead of imagination. Now I tell you the points with their visual description:\n{points_with_caps}\n. Now begin chatting! Human: {chat_input}\nAI: "
     # "The image is of width {width} and height {height}." 
-    
+    point_chat_prompt = "a) Revised prompt: I am an AI trained to chat with you about an image based on specific points (w, h) you provide, along with their visual descriptions. Please note that (0, 0) refers to the top-left corner of the image, w refers to the width, and h refers to the height. Here are the points and their descriptions you've given me: {points_with_caps}. Now, let's chat! Human: {chat_input} AI:"
     prev_visual_context = ""
     pos_points = [f"{points[i][0]}, {points[i][1]}" for i in range(len(points)) if labels[i] == 1]
     prev_visual_context = ', '.join(pos_points) + captions[-1] + '\n'
