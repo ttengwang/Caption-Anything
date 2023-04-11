@@ -35,7 +35,8 @@ def create_bubble_frame(image, text, point, font_path='DejaVuSansCondensed-Bold.
 
     # Wrap the text to fit within the max_text_width
     lines = wrap_text(text, font, max_text_width)
-    text_width, text_height = font.getsize(lines[0])
+    text_width = max([font.getsize(line)[0] for line in lines])
+    _, text_height = font.getsize(lines[0])
     text_height = text_height * len(lines)
 
     # Define bubble frame dimensions
@@ -48,7 +49,7 @@ def create_bubble_frame(image, text, point, font_path='DejaVuSansCondensed-Bold.
 
     # Draw the bubble frame on the new image
     draw = ImageDraw.Draw(bubble)
-    draw.rectangle([(0, 0), (bubble_width - 1, bubble_height - 1)], fill=(255, 255, 255, 0), outline=(255, 255, 255, 0), width=2)
+    # draw.rectangle([(0, 0), (bubble_width - 1, bubble_height - 1)], fill=(255, 255, 255, 0), outline=(255, 255, 255, 0), width=2)
 
     # Draw the wrapped text line by line
     y_text = padding
