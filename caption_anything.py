@@ -60,7 +60,7 @@ def parse_augment():
     parser.add_argument('--segmenter_checkpoint', type=str, default="segmenter/sam_vit_h_4b8939.pth")
     parser.add_argument('--seg_crop_mode', type=str, default="w_bg", choices=['wo_bg', 'w_bg'], help="whether to add or remove background of the image when captioning")
     parser.add_argument('--clip_filter', action="store_true", help="use clip to filter bad captions")
-    parser.add_argument('--context_captions', action="store_true", help="use surrounding captions to enhance current caption")
+    parser.add_argument('--context_captions', action="store_true", help="use surrounding captions to enhance current caption (TODO)")
     parser.add_argument('--regular_box', action="store_true", default = False, help="crop image with a regular box")
     parser.add_argument('--device', type=str, default="cuda:0")
     parser.add_argument('--port', type=int, default=6086, help="only useful when running gradio applications")  
