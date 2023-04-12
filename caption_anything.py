@@ -16,8 +16,11 @@ class CaptionAnything():
         self.segmenter = build_segmenter(args.segmenter, args.device, args) if segmenter is None else segmenter
         
         self.text_refiner = None
-        if not args.disable_gpt and text_refiner is not None:
-            self.init_refiner(api_key)
+        if not args.disable_gpt:
+            if text_refiner is not None:
+                self.text_refiner = text_refiner
+            else:
+                self.init_refiner(api_key)
 
     def init_refiner(self, api_key):
         try:
