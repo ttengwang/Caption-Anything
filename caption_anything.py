@@ -8,18 +8,22 @@ import time
 from PIL import Image
 
 class CaptionAnything():
-    def __init__(self, args):
+    def __init__(self, args, api_key=""):
         self.args = args
         self.captioner = build_captioner(args.captioner, args.device, args)
         self.segmenter = build_segmenter(args.segmenter, args.device, args)
+        self.text_refiner = None
         if not args.disable_gpt:
-            self.init_refiner()
+            self.init_refiner(api_key)
 
-
-    def init_refiner(self):
-        if os.environ.get('OPENAI_API_KEY', None):
-            self.text_refiner = build_text_refiner(self.args.text_refiner, self.args.device, self.args)
-            
+    def init_refiner(self, api_key):
+        try:
+            self.text_refiner = build_text_refiner(self.args.text_refiner, self.args.device, self.args, api_key)
+            self.text_refiner.llm('hi') # test
+        except:
+            self.text_refiner = None
+            print('Openai api key is NOT given')
+    
     def inference(self, image, prompt, controls, disable_gpt=False):
         #  segment with prompt
         print("CA prompt: ", prompt, "CA controls",controls)
@@ -42,7 +46,7 @@ class CaptionAnything():
         context_captions = []
         if self.args.context_captions:
             context_captions.append(self.captioner.inference(image))
-        if not disable_gpt and hasattr(self, "text_refiner"):
+        if not disable_gpt and self.text_refiner is not None:
             refined_caption = self.text_refiner.inference(query=caption, controls=controls, context=context_captions)
         else:
             refined_caption = {'raw_caption': caption}                
@@ -101,7 +105,7 @@ if __name__ == "__main__":
             "language": "English",
         }
     
-    model = CaptionAnything(args)
+    model = CaptionAnything(args, os.environ['OPENAI_API_KEY'])
     for prompt in prompts:
         print('*'*30)
         print('Image path: ', image_path)

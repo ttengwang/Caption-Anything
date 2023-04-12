@@ -5,12 +5,9 @@ from transformers import pipeline, BlipProcessor, BlipForConditionalGeneration, 
 import pdb
 
 class TextRefiner:
-    def __init__(self, device):
+    def __init__(self, device, api_key=""):
         print(f"Initializing TextRefiner to {device}")
-        try:
-            self.llm = OpenAI(model_name="gpt-3.5-turbo", temperature=0)
-        except:
-            print('Openai api key is NOT given')
+        self.llm = OpenAI(model_name="gpt-3.5-turbo", temperature=0, openai_api_key=api_key)
         self.prompt_tag = {
             "imagination": {"True": "could",
                             "False": "could not"}
