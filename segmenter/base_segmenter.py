@@ -9,15 +9,18 @@ import matplotlib.pyplot as plt
 import PIL
 
 class BaseSegmenter:
-    def __init__(self, device, checkpoint, model_type='vit_h', reuse_feature = True):
+    def __init__(self, device, checkpoint, model_type='vit_h', reuse_feature = True, model=None):
         print(f"Initializing BaseSegmenter to {device}")
         self.device = device
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
         self.processor = None
         self.model_type = model_type
-        self.checkpoint = checkpoint
-        self.model = sam_model_registry[self.model_type](checkpoint=self.checkpoint)
-        self.model.to(device=self.device)
+        if model is None:
+            self.checkpoint = checkpoint
+            self.model = sam_model_registry[self.model_type](checkpoint=self.checkpoint)
+            self.model.to(device=self.device)
+        else:
+            self.model = model
         self.reuse_feature = reuse_feature
         self.predictor = SamPredictor(self.model)
         self.mask_generator = SamAutomaticMaskGenerator(self.model)

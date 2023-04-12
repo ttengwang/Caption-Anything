@@ -8,12 +8,13 @@ import time
 from PIL import Image
 
 class CaptionAnything():
-    def __init__(self, args, api_key=""):
+    def __init__(self, args, api_key="", captioner=None, segmenter=None, text_refiner=None):
         self.args = args
-        self.captioner = build_captioner(args.captioner, args.device, args)
-        self.segmenter = build_segmenter(args.segmenter, args.device, args)
+        self.captioner = build_captioner(args.captioner, args.device, args) if captioner is None else captioner
+        self.segmenter = build_segmenter(args.segmenter, args.device, args) if segmenter is None else segmenter
+        
         self.text_refiner = None
-        if not args.disable_gpt:
+        if not args.disable_gpt and text_refiner is not None:
             self.init_refiner(api_key)
 
     def init_refiner(self, api_key):

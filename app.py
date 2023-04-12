@@ -15,6 +15,10 @@ import copy
 from tools import mask_painter
 from PIL import Image
 import os
+from captioner import build_captioner
+from segment_anything import sam_model_registry
+from text_refiner import build_text_refiner
+from segmenter import build_segmenter
 
 def download_checkpoint(url, folder, filename):
     os.makedirs(folder, exist_ok=True)
@@ -50,17 +54,33 @@ examples = [
 ]
 
 args = parse_augment()
-# args.device = 'cuda:5'
-# args.disable_gpt = False
-# args.enable_reduce_tokens = True
-# args.port=20322
-model = CaptionAnything(args)
+args.device = 'cuda:5'
+args.disable_gpt = True
+args.enable_reduce_tokens = False
+args.port=20322
+args.captioner = 'blip'
+args.regular_box = True
+shared_captioner = build_captioner(args.captioner, args.device, args)
+shared_sam_model = sam_model_registry['vit_h'](checkpoint=args.segmenter_checkpoint).to(args.device)
+
+
+def build_caption_anything_with_models(args, api_key="", captioner=None, sam_model=None, text_refiner=None, session_id=None):
+    segmenter = build_segmenter(args.segmenter, args.device, args, model=sam_model)
+    captioner = captioner
+    if session_id is not None:
+        print('Init caption anything for session {}'.format(session_id))
+    return CaptionAnything(args, api_key, captioner=captioner, segmenter=segmenter, text_refiner=text_refiner)
+
 
 def init_openai_api_key(api_key):
-    # os.environ['OPENAI_API_KEY'] = api_key
-    model.init_refiner(api_key)
-    openai_available = model.text_refiner is not None
-    return gr.update(visible = openai_available), gr.update(visible = openai_available), gr.update(visible = openai_available), gr.update(visible = True), gr.update(visible = True)
+    try:
+        text_refiner = build_text_refiner(args.text_refiner, args.device, args, api_key)
+        text_refiner.llm('hi') # test
+    except:
+        text_refiner = None
+    openai_available = text_refiner is not None
+    return gr.update(visible = openai_available), gr.update(visible = openai_available), gr.update(visible = openai_available), gr.update(visible = True), gr.update(visible = True), text_refiner
+
 
 def get_prompt(chat_input, click_state):    
     points = click_state[0]
@@ -78,8 +98,8 @@ def get_prompt(chat_input, click_state):
     }
     return prompt
 
-def chat_with_points(chat_input, click_state, state):
-    if model.text_refiner is None:
+def chat_with_points(chat_input, click_state, state, text_refiner):
+    if text_refiner is None:
         response = "Text refiner is not initilzed, please input openai api key."
         state = state + [(chat_input, response)]
         return state, state
@@ -95,11 +115,26 @@ def chat_with_points(chat_input, click_state, state):
     else:
         prev_visual_context = 'no point exists.'
     chat_prompt = point_chat_prompt.format(**{"points_with_caps": prev_visual_context, "chat_input": chat_input})
-    response = model.text_refiner.llm(chat_prompt)
+    response = text_refiner.llm(chat_prompt)
     state = state + [(chat_input, response)]
     return state, state
 
-def inference_seg_cap(image_input, point_prompt, language, sentiment, factuality, length, state, click_state, evt:gr.SelectData):
+def inference_seg_cap(image_input, point_prompt, language, sentiment, factuality, 
+                length, image_embedding, state, click_state, original_size, input_size, text_refiner, evt:gr.SelectData):
+    
+    model = build_caption_anything_with_models(
+        args,    
+        api_key="",
+        captioner=shared_captioner,
+        sam_model=shared_sam_model,
+        text_refiner=text_refiner,
+        session_id=iface.app_id
+    )
+    
+    model.segmenter.image_embedding = image_embedding
+    model.segmenter.predictor.original_size = original_size
+    model.segmenter.predictor.input_size = input_size
+    model.segmenter.predictor.is_image_set = True
 
     if point_prompt == 'Positive':
         coordinate = "[[{}, {}, 1]]".format(str(evt.index[0]), str(evt.index[1]))
@@ -150,10 +185,19 @@ def upload_callback(image_input, state):
     if ratio < 1.0:
         image_input = image_input.resize((int(width * ratio), int(height * ratio)))
         print('Scaling input image to {}'.format(image_input.size))
-    model.segmenter.image = None
-    model.segmenter.image_embedding = None
+        
+    model = build_caption_anything_with_models(
+        args,    
+        api_key="",
+        captioner=shared_captioner,
+        sam_model=shared_sam_model,
+        session_id=iface.app_id
+    )
     model.segmenter.set_image(image_input)
-    return state, image_input, click_state, image_input
+    image_embedding = model.segmenter.image_embedding
+    original_size = model.segmenter.predictor.original_size
+    input_size = model.segmenter.predictor.original_size
+    return state, image_input, click_state, image_input, image_embedding, original_size, input_size
 
 with gr.Blocks(
     css='''
@@ -164,6 +208,10 @@ with gr.Blocks(
     state = gr.State([])
     click_state = gr.State([[],[],[]])
     origin_image = gr.State(None)
+    image_embedding = gr.State(None)
+    text_refiner = gr.State(None)
+    original_size = gr.State(None)
+    input_size = gr.State(None)
 
     gr.Markdown(title)
     gr.Markdown(description)
@@ -225,7 +273,7 @@ with gr.Blocks(
                         clear_button_text = gr.Button(value="Clear Text", interactive=True)
                         submit_button_text = gr.Button(value="Submit", interactive=True, variant="primary")
                     
-    openai_api_key.submit(init_openai_api_key, inputs=[openai_api_key], outputs=[modules_need_gpt,modules_need_gpt2, modules_need_gpt3, modules_not_need_gpt, modules_not_need_gpt2])
+    openai_api_key.submit(init_openai_api_key, inputs=[openai_api_key], outputs=[modules_need_gpt,modules_need_gpt2, modules_need_gpt3, modules_not_need_gpt, modules_not_need_gpt2, text_refiner])
     clear_button_clike.click(
         lambda x: ([[], [], []], x, ""),
         [origin_image],
@@ -254,19 +302,15 @@ with gr.Blocks(
         queue=False,
         show_progress=False
     )
-
-    def example_callback(x):
-        model.image_embedding = None
-        return x
         
     gr.Examples(
         examples=examples,
         inputs=[example_image],
     )
 
-    image_input.upload(upload_callback,[image_input, state], [state, origin_image, click_state, image_input])
-    chat_input.submit(chat_with_points, [chat_input, click_state, state], [chatbot, state])
-    example_image.change(upload_callback,[example_image, state], [state, origin_image, click_state, image_input])
+    image_input.upload(upload_callback,[image_input, state], [state, origin_image, click_state, image_input, image_embedding, original_size, input_size])
+    chat_input.submit(chat_with_points, [chat_input, click_state, state, text_refiner], [chatbot, state])
+    example_image.change(upload_callback,[example_image, state], [state, origin_image, click_state, image_input, image_embedding, original_size, input_size])
 
     # select coordinate
     image_input.select(inference_seg_cap, 
@@ -277,8 +321,12 @@ with gr.Blocks(
         sentiment,
         factuality,
         length,
+        image_embedding,
         state,
-        click_state
+        click_state,
+        original_size, 
+        input_size,
+        text_refiner
         ],
         outputs=[chatbot, state, click_state, chat_input, image_input, wiki_output],
         show_progress=False, queue=True)
