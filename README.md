@@ -41,7 +41,7 @@ pip install -r requirements.txt
 ```bash
 # Configure the necessary ChatGPT APIs
 export OPENAI_API_KEY={Your_Private_Openai_Key}
-python app.py --regular_box  --captioner blip2 --port 6086
+python app.py --captioner blip2 --port 6086
 ```
 
 ## Acknowledgement
