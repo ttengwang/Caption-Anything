@@ -25,7 +25,7 @@ class CaptionAnything():
             self.text_refiner.llm('hi') # test
         except:
             self.text_refiner = None
-            print('Openai api key is NOT given')
+            print('OpenAI GPT is not available')
     
     def inference(self, image, prompt, controls, disable_gpt=False):
         #  segment with prompt

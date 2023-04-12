@@ -72,12 +72,14 @@ def build_caption_anything_with_models(args, api_key="", captioner=None, sam_mod
     return CaptionAnything(args, api_key, captioner=captioner, segmenter=segmenter, text_refiner=text_refiner)
 
 
-def init_openai_api_key(api_key):
-    try:
-        text_refiner = build_text_refiner(args.text_refiner, args.device, args, api_key)
-        text_refiner.llm('hi') # test
-    except:
-        text_refiner = None
+def init_openai_api_key(api_key=""):
+    text_refiner = None
+    if api_key and len(api_key) > 30:
+        try:
+            text_refiner = build_text_refiner(args.text_refiner, args.device, args, api_key)
+            text_refiner.llm('hi') # test
+        except:
+            text_refiner = None
     openai_available = text_refiner is not None
     return gr.update(visible = openai_available), gr.update(visible = openai_available), gr.update(visible = openai_available), gr.update(visible = True), gr.update(visible = True), gr.update(visible = True), text_refiner
 
