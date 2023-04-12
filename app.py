@@ -40,10 +40,13 @@ description = """Gradio demo for Caption Anything, image to dense captioning gen
 """
 
 examples = [
+    ["test_img/img35.webp"],
     ["test_img/img2.jpg"],
     ["test_img/img5.jpg"],
     ["test_img/img12.jpg"],
     ["test_img/img14.jpg"],
+    ["test_img/img0.png"],
+    ["test_img/img1.jpg"],
 ]
 
 args = parse_augment()

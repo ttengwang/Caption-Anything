@@ -17,3 +17,4 @@ onnxruntime
 onnx
 https://gradio-builds.s3.amazonaws.com/3e68e5e882a6790ac5b457bd33f4edf9b695af90/gradio-3.24.1-py3-none-any.whl
 accelerate
+bitsandbytes
