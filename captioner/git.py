@@ -22,7 +22,7 @@ class GITCaptioner(BaseCaptioner):
             image = Image.open(image)
         pixel_values = self.processor(images=image, return_tensors="pt").pixel_values.to(self.device, self.torch_dtype)
         generated_ids = self.model.generate(pixel_values=pixel_values, max_new_tokens=50)
-        generated_caption = self.processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+        generated_caption = self.processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
         if self.enable_filter and filter:
             captions = self.filter_caption(image, captions)
         print(f"\nProcessed ImageCaptioning by GITCaptioner, Output Text: {generated_caption}")
@@ -42,7 +42,7 @@ class GITCaptioner(BaseCaptioner):
         seg_mask = seg_mask.float()
         pixel_masks = seg_mask.unsqueeze(0).to(self.device)
         out = self.model.generate(pixel_values=pixel_values, pixel_masks=pixel_masks, max_new_tokens=50)
-        captions = self.processor.decode(out[0], skip_special_tokens=True)
+        captions = self.processor.decode(out[0], skip_special_tokens=True).strip()
         if self.enable_filter and filter:
             captions = self.filter_caption(image, captions)
         print(f"\nProcessed ImageCaptioning by BLIPCaptioner, Output Text: {captions}")

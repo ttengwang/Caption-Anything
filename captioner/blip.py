@@ -25,7 +25,7 @@ class BLIPCaptioner(BaseCaptioner):
                 image = Image.open(image)
         inputs = self.processor(image, return_tensors="pt").to(self.device, self.torch_dtype)
         out = self.model.generate(**inputs, max_new_tokens=50)
-        captions = self.processor.decode(out[0], skip_special_tokens=True)
+        captions = self.processor.decode(out[0], skip_special_tokens=True).strip()
         if self.enable_filter and filter:
             captions = self.filter_caption(image, captions)
         print(f"\nProcessed ImageCaptioning by BLIPCaptioner, Output Text: {captions}")
@@ -45,7 +45,7 @@ class BLIPCaptioner(BaseCaptioner):
         seg_mask = seg_mask.float()
         pixel_masks = seg_mask.unsqueeze(0).to(self.device)
         out = self.model.generate(pixel_values=pixel_values, pixel_masks=pixel_masks, max_new_tokens=50)
-        captions = self.processor.decode(out[0], skip_special_tokens=True)
+        captions = self.processor.decode(out[0], skip_special_tokens=True).strip()
         if self.enable_filter and filter:
             captions = self.filter_caption(image, captions)
         print(f"\nProcessed ImageCaptioning by BLIPCaptioner, Output Text: {captions}")
