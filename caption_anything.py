@@ -82,7 +82,7 @@ def parse_augment():
     parser.add_argument('--disable_gpt', action="store_true")
     parser.add_argument('--enable_reduce_tokens', action="store_true", default=False)
     parser.add_argument('--disable_reuse_features', action="store_true", default=False)
-    parser.add_argument('--enable_morphologyex', action="store_true", default=True)
+    parser.add_argument('--enable_morphologyex', action="store_true", default=False)
     args = parser.parse_args()
 
     if args.debug:
