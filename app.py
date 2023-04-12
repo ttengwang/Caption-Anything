@@ -54,9 +54,10 @@ args = parse_augment()
 model = CaptionAnything(args)
 
 def init_openai_api_key(api_key):
-    os.environ['OPENAI_API_KEY'] = api_key
-    model.init_refiner()
-
+    # os.environ['OPENAI_API_KEY'] = api_key
+    model.init_refiner(api_key)
+    openai_available = model.text_refiner is not None
+    return gr.update(visible = openai_available), gr.update(visible = openai_available), gr.update(visible = openai_available), gr.update(visible = True), gr.update(visible = True)
 
 def get_prompt(chat_input, click_state):    
     points = click_state[0]
@@ -75,7 +76,7 @@ def get_prompt(chat_input, click_state):
     return prompt
 
 def chat_with_points(chat_input, click_state, state):
-    if not hasattr(model, "text_refiner"):
+    if model.text_refiner is None:
         response = "Text refiner is not initilzed, please input openai api key."
         state = state + [(chat_input, response)]
         return state, state
@@ -129,7 +130,7 @@ def inference_seg_cap(image_input, point_prompt, language, sentiment, factuality
     image_input = create_bubble_frame(image_input, text, (evt.index[0], evt.index[1]))
 
     yield state, state, click_state, chat_input, image_input, wiki
-    if not args.disable_gpt and hasattr(model, "text_refiner"):
+    if not args.disable_gpt and model.text_refiner:
         refined_caption = model.text_refiner.inference(query=text, controls=controls, context=out['context_captions'])
         # new_cap = 'Original: ' + text + '. Refined: ' + refined_caption['caption']
         new_cap = refined_caption['caption']
@@ -166,56 +167,62 @@ with gr.Blocks(
 
     with gr.Row():
         with gr.Column(scale=1.0):
-            image_input = gr.Image(type="pil", interactive=True, elem_id="image_upload")
-            example_image = gr.Image(type="pil", interactive=False, visible=False)
-            with gr.Row(scale=1.0):
-                point_prompt = gr.Radio(
-                    choices=["Positive",  "Negative"],
-                    value="Positive",
-                    label="Point Prompt",
-                    interactive=True)
-                clear_button_clike = gr.Button(value="Clear Clicks", interactive=True)
-                clear_button_image = gr.Button(value="Clear Image", interactive=True)
-            with gr.Row(scale=1.0):
-                language = gr.Dropdown(['English', 'Chinese', 'French', "Spanish", "Arabic", "Portuguese", "Cantonese"], value="English", label="Language", interactive=True)
-               
-                sentiment = gr.Radio(
-                    choices=["Positive", "Natural", "Negative"],
-                    value="Natural",
-                    label="Sentiment",
-                    interactive=True,
-                )
-            with gr.Row(scale=1.0):
-                factuality = gr.Radio(
-                    choices=["Factual", "Imagination"],
-                    value="Factual",
-                    label="Factuality",
-                    interactive=True,
-                )
-                length = gr.Slider(
-                    minimum=10,
-                    maximum=80,
-                    value=10,
-                    step=1,
-                    interactive=True,
-                    label="Length",
-                )
+            with gr.Column(visible=False) as modules_not_need_gpt:
+                image_input = gr.Image(type="pil", interactive=True, elem_id="image_upload")
+                example_image = gr.Image(type="pil", interactive=False, visible=False)
+                with gr.Row(scale=1.0):
+                    point_prompt = gr.Radio(
+                        choices=["Positive",  "Negative"],
+                        value="Positive",
+                        label="Point Prompt",
+                        interactive=True)
+                    clear_button_clike = gr.Button(value="Clear Clicks", interactive=True)
+                    clear_button_image = gr.Button(value="Clear Image", interactive=True)
+            with gr.Column(visible=False) as modules_need_gpt:
+                with gr.Row(scale=1.0):
+                    language = gr.Dropdown(['English', 'Chinese', 'French', "Spanish", "Arabic", "Portuguese", "Cantonese"], value="English", label="Language", interactive=True)
+                
+                    sentiment = gr.Radio(
+                        choices=["Positive", "Natural", "Negative"],
+                        value="Natural",
+                        label="Sentiment",
+                        interactive=True,
+                    )
+                with gr.Row(scale=1.0):
+                    factuality = gr.Radio(
+                        choices=["Factual", "Imagination"],
+                        value="Factual",
+                        label="Factuality",
+                        interactive=True,
+                    )
+                    length = gr.Slider(
+                        minimum=10,
+                        maximum=80,
+                        value=10,
+                        step=1,
+                        interactive=True,
+                        label="Length",
+                    )
         
         with gr.Column(scale=0.5):
             openai_api_key = gr.Textbox(
-                placeholder="Input your openAI API key and press Enter",
+                placeholder="Input openAI API key and press Enter (Input blank will disable GPT)",
                 show_label=False,
                 label = "OpenAI API Key",
                 lines=1,
                 type="password"
                 )
-            openai_api_key.submit(init_openai_api_key, inputs=[openai_api_key])
-            wiki_output = gr.Textbox(lines=6, label="Wiki")
-            chatbot = gr.Chatbot(label="Chat about Selected Object",).style(height=450,scale=0.5)
-            chat_input = gr.Textbox(lines=1, label="Chat Input")
-            with gr.Row():
-                clear_button_text = gr.Button(value="Clear Text", interactive=True)
-                submit_button_text = gr.Button(value="Submit", interactive=True, variant="primary")
+            with gr.Column(visible=False) as modules_need_gpt2:
+                wiki_output = gr.Textbox(lines=6, label="Wiki")
+            with gr.Column(visible=False) as modules_not_need_gpt2:
+                chatbot = gr.Chatbot(label="Chat about Selected Object",).style(height=450,scale=0.5)
+                with gr.Column(visible=False) as modules_need_gpt3:
+                    chat_input = gr.Textbox(lines=1, label="Chat Input")
+                    with gr.Row():
+                        clear_button_text = gr.Button(value="Clear Text", interactive=True)
+                        submit_button_text = gr.Button(value="Submit", interactive=True, variant="primary")
+                    
+    openai_api_key.submit(init_openai_api_key, inputs=[openai_api_key], outputs=[modules_need_gpt,modules_need_gpt2, modules_need_gpt3, modules_not_need_gpt, modules_not_need_gpt2])
     clear_button_clike.click(
         lambda x: ([[], [], []], x, ""),
         [origin_image],
@@ -224,9 +231,9 @@ with gr.Blocks(
         show_progress=False
     )
     clear_button_image.click(
-        lambda: (None, [], [], [[], [], []], ""),
+        lambda: (None, [], [], [[], [], []], "", ""),
         [],
-        [image_input, chatbot, state, click_state, wiki_output],
+        [image_input, chatbot, state, click_state, wiki_output, origin_image],
         queue=False,
         show_progress=False
     )
@@ -238,14 +245,18 @@ with gr.Blocks(
         show_progress=False
     )
     image_input.clear(
-        lambda: (None, [], [], [[], [], []], ""),
+        lambda: (None, [], [], [[], [], []], "", ""),
         [],
-        [image_input, chatbot, state, click_state, wiki_output],
+        [image_input, chatbot, state, click_state, wiki_output, origin_image],
         queue=False,
         show_progress=False
     )
 
-    examples = gr.Examples(
+    def example_callback(x):
+        model.image_embedding = None
+        return x
+        
+    gr.Examples(
         examples=examples,
         inputs=[example_image],
     )
@@ -270,4 +281,4 @@ with gr.Blocks(
         show_progress=False, queue=True)
     
 iface.queue(concurrency_count=1, api_open=False, max_size=10)
-iface.launch(server_name="0.0.0.0", enable_queue=True, server_port=args.port, share=args.gradio_share)
+iface.launch(server_name="0.0.0.0", enable_queue=True, server_port=args.port, share=args.gradio_share)  

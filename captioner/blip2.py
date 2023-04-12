@@ -25,7 +25,7 @@ class BLIP2Captioner(BaseCaptioner):
             text_prompt = 'Context: ignore the white part in this image. Question: describe this image. Answer:'
             inputs = self.processor(image, text = text_prompt, return_tensors="pt").to(self.device, self.torch_dtype)
             out = self.model.generate(**inputs, max_new_tokens=50)
-            captions = self.processor.decode(out[0], skip_special_tokens=True)
+            captions = self.processor.decode(out[0], skip_special_tokens=True).strip()
             if self.enable_filter and filter:
                 captions = self.filter_caption(image, captions)
             print(f"\nProcessed ImageCaptioning by BLIP2Captioner, Output Text: {captions}")

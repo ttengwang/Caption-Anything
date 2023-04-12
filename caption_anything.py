@@ -8,18 +8,22 @@ import time
 from PIL import Image
 
 class CaptionAnything():
-    def __init__(self, args):
+    def __init__(self, args, api_key=""):
         self.args = args
         self.captioner = build_captioner(args.captioner, args.device, args)
         self.segmenter = build_segmenter(args.segmenter, args.device, args)
+        self.text_refiner = None
         if not args.disable_gpt:
-            self.init_refiner()
+            self.init_refiner(api_key)
 
-
-    def init_refiner(self):
-        if os.environ.get('OPENAI_API_KEY', None):
-            self.text_refiner = build_text_refiner(self.args.text_refiner, self.args.device, self.args)
-            
+    def init_refiner(self, api_key):
+        try:
+            self.text_refiner = build_text_refiner(self.args.text_refiner, self.args.device, self.args, api_key)
+            self.text_refiner.llm('hi') # test
+        except:
+            self.text_refiner = None
+            print('Openai api key is NOT given')
+    
     def inference(self, image, prompt, controls, disable_gpt=False):
         #  segment with prompt
         print("CA prompt: ", prompt, "CA controls",controls)
@@ -35,14 +39,14 @@ class CaptionAnything():
         print("seg_mask.shape: ", seg_mask.shape)
         #  captioning with mask
         if self.args.enable_reduce_tokens:
-            caption, crop_save_path = self.captioner.inference_with_reduced_tokens(image, seg_mask, crop_mode=self.args.seg_crop_mode, filter=self.args.clip_filter, regular_box = self.args.regular_box)
+            caption, crop_save_path = self.captioner.inference_with_reduced_tokens(image, seg_mask, crop_mode=self.args.seg_crop_mode, filter=self.args.clip_filter, disable_regular_box = self.args.disable_regular_box)
         else:
-            caption, crop_save_path = self.captioner.inference_seg(image, seg_mask, crop_mode=self.args.seg_crop_mode, filter=self.args.clip_filter, regular_box = self.args.regular_box)
+            caption, crop_save_path = self.captioner.inference_seg(image, seg_mask, crop_mode=self.args.seg_crop_mode, filter=self.args.clip_filter, disable_regular_box = self.args.disable_regular_box)
         #  refining with TextRefiner
         context_captions = []
         if self.args.context_captions:
             context_captions.append(self.captioner.inference(image))
-        if not disable_gpt and hasattr(self, "text_refiner"):
+        if not disable_gpt and self.text_refiner is not None:
             refined_caption = self.text_refiner.inference(query=caption, controls=controls, context=context_captions)
         else:
             refined_caption = {'raw_caption': caption}                
@@ -61,7 +65,7 @@ def parse_augment():
     parser.add_argument('--seg_crop_mode', type=str, default="wo_bg", choices=['wo_bg', 'w_bg'], help="whether to add or remove background of the image when captioning")
     parser.add_argument('--clip_filter', action="store_true", help="use clip to filter bad captions")
     parser.add_argument('--context_captions', action="store_true", help="use surrounding captions to enhance current caption (TODO)")
-    parser.add_argument('--regular_box', action="store_true", default = False, help="crop image with a regular box")
+    parser.add_argument('--disable_regular_box', action="store_true", default = False, help="crop image with a regular box")
     parser.add_argument('--device', type=str, default="cuda:0")
     parser.add_argument('--port', type=int, default=6086, help="only useful when running gradio applications")  
     parser.add_argument('--debug', action="store_true")
@@ -101,7 +105,7 @@ if __name__ == "__main__":
             "language": "English",
         }
     
-    model = CaptionAnything(args)
+    model = CaptionAnything(args, os.environ['OPENAI_API_KEY'])
     for prompt in prompts:
         print('*'*30)
         print('Image path: ', image_path)

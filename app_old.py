@@ -98,9 +98,9 @@ def chat_with_points(chat_input, click_state, state):
     return state, state
 
 def init_openai_api_key(api_key):
-    os.environ['OPENAI_API_KEY'] = api_key
+    # os.environ['OPENAI_API_KEY'] = api_key
     global model
-    model = CaptionAnything(args)
+    model = CaptionAnything(args, api_key)
 
 css='''
 #image_upload{min-height:200px}
