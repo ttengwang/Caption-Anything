@@ -54,12 +54,12 @@ examples = [
 ]
 
 args = parse_augment()
-args.device = 'cuda:5'
-args.disable_gpt = True
-args.enable_reduce_tokens = False
-args.port=20322
-args.captioner = 'blip'
-args.regular_box = True
+# args.device = 'cuda:5'
+# args.disable_gpt = True
+# args.enable_reduce_tokens = False
+# args.port=20322
+# args.captioner = 'blip'
+# args.regular_box = True
 shared_captioner = build_captioner(args.captioner, args.device, args)
 shared_sam_model = sam_model_registry['vit_h'](checkpoint=args.segmenter_checkpoint).to(args.device)
 
