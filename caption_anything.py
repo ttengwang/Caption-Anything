@@ -31,10 +31,10 @@ class CaptionAnything():
         mask_save_path = f'result/mask_{time.time()}.png'
         if not os.path.exists(os.path.dirname(mask_save_path)):
             os.makedirs(os.path.dirname(mask_save_path))
-        new_p = Image.fromarray(seg_mask.astype('int') * 255.)
-        if new_p.mode != 'RGB':
-            new_p = new_p.convert('RGB')
-        new_p.save(mask_save_path)
+        seg_mask_img = Image.fromarray(seg_mask.astype('int') * 255.)
+        if seg_mask_img.mode != 'RGB':
+            seg_mask_img = seg_mask_img.convert('RGB')
+        seg_mask_img.save(mask_save_path)
         print('seg_mask path: ', mask_save_path)
         print("seg_mask.shape: ", seg_mask.shape)
         #  captioning with mask
@@ -53,6 +53,7 @@ class CaptionAnything():
         out = {'generated_captions': refined_caption,
             'crop_save_path': crop_save_path,
             'mask_save_path': mask_save_path,
+            'mask': seg_mask_img,
             'context_captions': context_captions}
         return out
     

@@ -127,7 +127,7 @@ def inference_seg_cap(image_input, point_prompt, language, sentiment, factuality
     text = out['generated_captions']['raw_caption']
     # draw = ImageDraw.Draw(image_input)
     # draw.text((evt.index[0], evt.index[1]), text, textcolor=(0,0,255), text_size=120)
-    input_mask = np.array(Image.open(out['mask_save_path']).convert('P'))
+    input_mask = np.array(out['mask'].convert('P'))
     image_input = mask_painter(np.array(image_input), input_mask)
     origin_image_input = image_input
     image_input = create_bubble_frame(image_input, text, (evt.index[0], evt.index[1]))
