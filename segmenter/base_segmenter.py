@@ -46,7 +46,7 @@ class BaseSegmenter:
             new_masks = np.concatenate([mask["segmentation"][np.newaxis,:] for mask in masks])
             return new_masks
         else:
-            if not self.reuse_feature:
+            if not self.reuse_feature or self.image_embedding is None:
                 self.set_image(image)
                 self.predictor.set_image(self.image)
             else:
