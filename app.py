@@ -82,21 +82,41 @@ def init_openai_api_key(api_key):
     return gr.update(visible = openai_available), gr.update(visible = openai_available), gr.update(visible = openai_available), gr.update(visible = True), gr.update(visible = True), gr.update(visible = True), text_refiner
 
 
-def get_prompt(chat_input, click_state):    
-    points = click_state[0]
-    labels = click_state[1]
+def get_prompt(chat_input, click_state, click_mode):
     inputs = json.loads(chat_input)
-    for input in inputs:
-        points.append(input[:2])
-        labels.append(input[2])
+    if click_mode == 'Continuous':
+        points = click_state[0]
+        labels = click_state[1]
+        for input in inputs:
+            points.append(input[:2])
+            labels.append(input[2])
+    elif click_mode == 'Single':
+        points = []
+        labels = []
+        for input in inputs:
+            points.append(input[:2])
+            labels.append(input[2])
+        click_state[0] = points
+        click_state[1] = labels
+    else:
+        raise NotImplementedError
     
     prompt = {
         "prompt_type":["click"],
-        "input_point":points,
-        "input_label":labels,
+        "input_point":click_state[0],
+        "input_label":click_state[1],
         "multimask_output":"True",
     }
     return prompt
+
+def update_click_state(click_state, caption, click_mode):
+    if click_mode == 'Continuous':
+        click_state[2].append(caption)
+    elif click_mode == 'Single':
+        click_state[2] = [caption]
+    else:
+        raise NotImplementedError     
+
 
 def chat_with_points(chat_input, click_state, state, text_refiner):
     if text_refiner is None:
@@ -119,7 +139,7 @@ def chat_with_points(chat_input, click_state, state, text_refiner):
     state = state + [(chat_input, response)]
     return state, state
 
-def inference_seg_cap(image_input, point_prompt, language, sentiment, factuality, 
+def inference_seg_cap(image_input, point_prompt, click_mode, language, sentiment, factuality, 
                 length, image_embedding, state, click_state, original_size, input_size, text_refiner, evt:gr.SelectData):
     
     model = build_caption_anything_with_models(
@@ -148,7 +168,7 @@ def inference_seg_cap(image_input, point_prompt, language, sentiment, factuality
 
     # click_coordinate = "[[{}, {}, 1]]".format(str(evt.index[0]), str(evt.index[1])) 
     # chat_input = click_coordinate
-    prompt = get_prompt(coordinate, click_state)
+    prompt = get_prompt(coordinate, click_state, click_mode)
     print('prompt: ', prompt, 'controls: ', controls)
 
     out = model.inference(image_input, prompt, controls)
@@ -157,8 +177,8 @@ def inference_seg_cap(image_input, point_prompt, language, sentiment, factuality
     #     state = state + [(f'{k}: {v}', None)]
     state = state + [("caption: {}".format(out['generated_captions']['raw_caption']), None)]
     wiki = out['generated_captions'].get('wiki', "")
-    click_state[2].append(out['generated_captions']['raw_caption'])
-    
+
+    update_click_state(click_state, out['generated_captions']['raw_caption'], click_mode)
     text = out['generated_captions']['raw_caption']
     # draw = ImageDraw.Draw(image_input)
     # draw.text((evt.index[0], evt.index[1]), text, textcolor=(0,0,255), text_size=120)
@@ -222,13 +242,20 @@ with gr.Blocks(
                 image_input = gr.Image(type="pil", interactive=True, elem_id="image_upload")
                 example_image = gr.Image(type="pil", interactive=False, visible=False)
                 with gr.Row(scale=1.0):
-                    point_prompt = gr.Radio(
-                        choices=["Positive",  "Negative"],
-                        value="Positive",
-                        label="Point Prompt",
-                        interactive=True)
-                    clear_button_clike = gr.Button(value="Clear Clicks", interactive=True)
-                    clear_button_image = gr.Button(value="Clear Image", interactive=True)
+                    with gr.Row(scale=0.4):
+                        point_prompt = gr.Radio(
+                            choices=["Positive",  "Negative"],
+                            value="Positive",
+                            label="Point Prompt",
+                            interactive=True)
+                        click_mode = gr.Radio(
+                            choices=["Continuous",  "Single"],
+                            value="Continuous",
+                            label="Clicking Mode",
+                            interactive=True)
+                    with gr.Row(scale=0.4):
+                        clear_button_clike = gr.Button(value="Clear Clicks", interactive=True)
+                        clear_button_image = gr.Button(value="Clear Image", interactive=True)
             with gr.Column(visible=False) as modules_need_gpt:
                 with gr.Row(scale=1.0):
                     language = gr.Dropdown(['English', 'Chinese', 'French', "Spanish", "Arabic", "Portuguese", "Cantonese"], value="English", label="Language", interactive=True)
@@ -321,6 +348,7 @@ with gr.Blocks(
         inputs=[
         origin_image,
         point_prompt,
+        click_mode,
         language,
         sentiment,
         factuality,
