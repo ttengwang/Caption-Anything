@@ -6,6 +6,8 @@ import argparse
 import pdb
 import time
 from PIL import Image
+import cv2
+import numpy as np
 
 class CaptionAnything():
     def __init__(self, args, api_key="", captioner=None, segmenter=None, text_refiner=None):
@@ -29,6 +31,12 @@ class CaptionAnything():
         #  segment with prompt
         print("CA prompt: ", prompt, "CA controls",controls)
         seg_mask = self.segmenter.inference(image, prompt)[0, ...]
+        if self.args.enable_morphologyex:
+            seg_mask = 255 * seg_mask.astype(np.uint8)
+            seg_mask = np.stack([seg_mask, seg_mask, seg_mask], axis = -1)
+            seg_mask = cv2.morphologyEx(seg_mask, cv2.MORPH_OPEN, kernel = np.ones((6, 6), np.uint8))
+            seg_mask = cv2.morphologyEx(seg_mask, cv2.MORPH_CLOSE, kernel = np.ones((6, 6), np.uint8))
+            seg_mask = seg_mask[:,:,0] > 0
         mask_save_path = f'result/mask_{time.time()}.png'
         if not os.path.exists(os.path.dirname(mask_save_path)):
             os.makedirs(os.path.dirname(mask_save_path))
@@ -75,6 +83,7 @@ def parse_augment():
     parser.add_argument('--disable_gpt', action="store_true")
     parser.add_argument('--enable_reduce_tokens', action="store_true", default=False)
     parser.add_argument('--disable_reuse_features', action="store_true", default=False)
+    parser.add_argument('--enable_morphologyex', action="store_true", default=False)
     args = parser.parse_args()
 
     if args.debug:
