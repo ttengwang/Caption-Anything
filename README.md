@@ -33,23 +33,21 @@ Explore the interactive demo of Caption-Anything, which showcases its powerful c
 ![](./Image/demo2.png)
 
 ### Getting Started
-
-
-* Clone the repository:
 ```bash
+# Clone the repository:
 git clone https://github.com/ttengwang/caption-anything.git
-```
-* Install dependencies:
-```bash
 cd caption-anything
-pip install -r requirements.txt
-```
-* Download the [SAM checkpoints](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth) and place it to `./segmenter/sam_vit_h_4b8939.pth.`
 
-* Run the Caption-Anything gradio demo.
-```bash
+# Install dependencies:
+pip install -r requirements.txt
+
+# Download the [SAM checkpoints](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth).
+wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth ./segmenter/sam_vit_h_4b8939.pth
+
 # Configure the necessary ChatGPT APIs
 export OPENAI_API_KEY={Your_Private_Openai_Key}
+
+# Run the Caption-Anything gradio demo.
 python app.py --captioner blip2 --port 6086
 ```
 
