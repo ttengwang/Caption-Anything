@@ -167,6 +167,7 @@ with gr.Blocks(
     with gr.Row():
         with gr.Column(scale=1.0):
             image_input = gr.Image(type="pil", interactive=True, elem_id="image_upload")
+            example_image = gr.Image(type="pil", interactive=False, visible=False)
             with gr.Row(scale=1.0):
                 point_prompt = gr.Radio(
                     choices=["Positive",  "Negative"],
@@ -246,11 +247,12 @@ with gr.Blocks(
 
     examples = gr.Examples(
         examples=examples,
-        inputs=[image_input],
+        inputs=[example_image],
     )
 
     image_input.upload(upload_callback,[image_input, state], [state, origin_image, click_state, image_input])
     chat_input.submit(chat_with_points, [chat_input, click_state, state], [chatbot, state])
+    example_image.change(upload_callback,[example_image, state], [state, origin_image, click_state, image_input])
 
     # select coordinate
     image_input.select(inference_seg_cap, 
