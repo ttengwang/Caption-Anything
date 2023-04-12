@@ -135,7 +135,7 @@ class BaseCaptioner:
         return caption, crop_save_path
         
 
-    def inference_seg(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str], crop_mode="w_bg", filter=False, regular_box = False):
+    def inference_seg(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str], crop_mode="w_bg", filter=False, disable_regular_box = False):
         if type(image) == str:
             image = Image.open(image)
         if type(seg_mask) == str:
@@ -151,14 +151,14 @@ class BaseCaptioner:
         else:
             image = np.array(image)
 
-        if regular_box:
-            min_area_box = new_seg_to_box(seg_mask)
-        else:
+        if disable_regular_box:
             min_area_box = seg_to_box(seg_mask)
+        else:
+            min_area_box = new_seg_to_box(seg_mask)
         return self.inference_box(image, min_area_box, filter)
     
 
-    def generate_seg_cropped_image(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str], crop_mode="w_bg", regular_box = False):
+    def generate_seg_cropped_image(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str], crop_mode="w_bg", disable_regular_box = False):
         if type(image) == str:
             image = Image.open(image)
         if type(seg_mask) == str:
@@ -173,10 +173,10 @@ class BaseCaptioner:
         else:
             image = np.array(image)
 
-        if regular_box:
-            box = new_seg_to_box(seg_mask)
-        else:
+        if disable_regular_box:
             box = seg_to_box(seg_mask)
+        else:
+            box = new_seg_to_box(seg_mask)
         
         if np.array(box).size == 4: # [x0, y0, x1, y1], where (x0, y0), (x1, y1) represent top-left and bottom-right corners
             size = max(image.shape[0], image.shape[1])

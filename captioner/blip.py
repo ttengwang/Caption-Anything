@@ -32,8 +32,8 @@ class BLIPCaptioner(BaseCaptioner):
         return captions
     
     @torch.no_grad()
-    def inference_with_reduced_tokens(self, image: Union[np.ndarray, Image.Image, str], seg_mask, crop_mode="w_bg", filter=False, regular_box = False):
-        crop_save_path = self.generate_seg_cropped_image(image=image, seg_mask=seg_mask, crop_mode=crop_mode, regular_box=regular_box)
+    def inference_with_reduced_tokens(self, image: Union[np.ndarray, Image.Image, str], seg_mask, crop_mode="w_bg", filter=False, disable_regular_box = False):
+        crop_save_path = self.generate_seg_cropped_image(image=image, seg_mask=seg_mask, crop_mode=crop_mode, disable_regular_box=disable_regular_box)
         if type(image) == str: # input path
             image = Image.open(image)
         inputs = self.processor(image, return_tensors="pt")
