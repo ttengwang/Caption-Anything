@@ -218,7 +218,7 @@ def upload_callback(image_input, state):
     model.segmenter.set_image(image_input)
     image_embedding = model.segmenter.image_embedding
     original_size = model.segmenter.predictor.original_size
-    input_size = model.segmenter.predictor.original_size
+    input_size = model.segmenter.predictor.input_size
     return state, state, image_input, click_state, image_input, image_embedding, original_size, input_size
 
 with gr.Blocks(
