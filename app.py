@@ -56,11 +56,11 @@ args = parse_augment()
 # args.port=20322
 model = CaptionAnything(args)
 
-def init_openai_api_key(api_key):
+def init_openai_api_key(api_key=""):
     # os.environ['OPENAI_API_KEY'] = api_key
     model.init_refiner(api_key)
     openai_available = model.text_refiner is not None
-    return gr.update(visible = openai_available), gr.update(visible = openai_available), gr.update(visible = openai_available), gr.update(visible = True), gr.update(visible = True)
+    return gr.update(visible = openai_available), gr.update(visible = openai_available), gr.update(visible = openai_available), gr.update(visible = True), gr.update(visible = True), gr.update(visible = True)
 
 def get_prompt(chat_input, click_state):    
     points = click_state[0]
@@ -153,7 +153,7 @@ def upload_callback(image_input, state):
     model.segmenter.image = None
     model.segmenter.image_embedding = None
     model.segmenter.set_image(image_input)
-    return state, image_input, click_state, image_input
+    return state, state, image_input, click_state, image_input
 
 with gr.Blocks(
     css='''
@@ -184,7 +184,7 @@ with gr.Blocks(
             with gr.Column(visible=False) as modules_need_gpt:
                 with gr.Row(scale=1.0):
                     language = gr.Dropdown(['English', 'Chinese', 'French', "Spanish", "Arabic", "Portuguese", "Cantonese"], value="English", label="Language", interactive=True)
-                
+
                     sentiment = gr.Radio(
                         choices=["Positive", "Natural", "Negative"],
                         value="Natural",
@@ -205,27 +205,36 @@ with gr.Blocks(
                         step=1,
                         interactive=True,
                         label="Length",
-                    )
-        
+                    )   
+            with gr.Column(visible=True) as modules_not_need_gpt3:
+                gr.Examples(
+                    examples=examples,
+                    inputs=[example_image],
+                )
         with gr.Column(scale=0.5):
             openai_api_key = gr.Textbox(
-                placeholder="Input openAI API key and press Enter (Input blank will disable GPT)",
+                placeholder="Input openAI API key",
                 show_label=False,
                 label = "OpenAI API Key",
                 lines=1,
-                type="password"
-                )
+                type="password")
+            with gr.Row(scale=0.5):
+                enable_chatGPT_button = gr.Button(value="Run with ChatGPT", interactive=True, variant='primary')
+                disable_chatGPT_button = gr.Button(value="Run without ChatGPT (Faster)", interactive=True, variant='primary')
             with gr.Column(visible=False) as modules_need_gpt2:
-                wiki_output = gr.Textbox(lines=6, label="Wiki")
+                wiki_output = gr.Textbox(lines=5, label="Wiki", max_lines=5)
             with gr.Column(visible=False) as modules_not_need_gpt2:
-                chatbot = gr.Chatbot(label="Chat about Selected Object",).style(height=450,scale=0.5)
+                chatbot = gr.Chatbot(label="Chat about Selected Object",).style(height=550,scale=0.5)
                 with gr.Column(visible=False) as modules_need_gpt3:
                     chat_input = gr.Textbox(lines=1, label="Chat Input")
                     with gr.Row():
                         clear_button_text = gr.Button(value="Clear Text", interactive=True)
                         submit_button_text = gr.Button(value="Submit", interactive=True, variant="primary")
-                    
-    openai_api_key.submit(init_openai_api_key, inputs=[openai_api_key], outputs=[modules_need_gpt,modules_need_gpt2, modules_need_gpt3, modules_not_need_gpt, modules_not_need_gpt2])
+    
+    openai_api_key.submit(init_openai_api_key, inputs=[openai_api_key], outputs=[modules_need_gpt,modules_need_gpt2, modules_need_gpt3, modules_not_need_gpt, modules_not_need_gpt2, modules_not_need_gpt3])
+    enable_chatGPT_button.click(init_openai_api_key, inputs=[openai_api_key], outputs=[modules_need_gpt,modules_need_gpt2, modules_need_gpt3, modules_not_need_gpt, modules_not_need_gpt2, modules_not_need_gpt3])
+    disable_chatGPT_button.click(init_openai_api_key, outputs=[modules_need_gpt,modules_need_gpt2, modules_need_gpt3, modules_not_need_gpt, modules_not_need_gpt2, modules_not_need_gpt3])
+    
     clear_button_clike.click(
         lambda x: ([[], [], []], x, ""),
         [origin_image],
@@ -258,15 +267,12 @@ with gr.Blocks(
     def example_callback(x):
         model.image_embedding = None
         return x
-        
-    gr.Examples(
-        examples=examples,
-        inputs=[example_image],
-    )
+    
 
-    image_input.upload(upload_callback,[image_input, state], [state, origin_image, click_state, image_input])
+
+    image_input.upload(upload_callback,[image_input, state], [chatbot, state, origin_image, click_state, image_input])
     chat_input.submit(chat_with_points, [chat_input, click_state, state], [chatbot, state])
-    example_image.change(upload_callback,[example_image, state], [state, origin_image, click_state, image_input])
+    example_image.change(upload_callback,[example_image, state], [state, state, origin_image, click_state, image_input])
 
     # select coordinate
     image_input.select(inference_seg_cap, 
