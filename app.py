@@ -173,7 +173,7 @@ def inference_seg_cap(image_input, point_prompt, click_mode, language, sentiment
     prompt = get_prompt(coordinate, click_state, click_mode)
     print('prompt: ', prompt, 'controls: ', controls)
 
-    out = model.inference(image_input, prompt, controls)
+    out = model.inference(image_input, prompt, controls, disable_gpt=True)
     state = state + [(None, "Image point: {}, Input label: {}".format(prompt["input_point"], prompt["input_label"]))]
     # for k, v in out['generated_captions'].items():
     #     state = state + [(f'{k}: {v}', None)]
