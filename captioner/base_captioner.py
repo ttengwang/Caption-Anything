@@ -15,14 +15,9 @@ def boundary(inputs):
     inputs = inputs.reshape(-1)
     lens = len(inputs)
 
-    for i in range(lens):
-        if inputs[i] != False:
-            break
-    for j in range(lens):
-        if inputs[lens - 1 - j] != False:
-            break
-    start = i
-    end = lens - 1 - j
+    start = np.argmax(inputs)
+    end = lens - 1 - np.argmax(np.flip(inputs))
+
     top = start // col
     bottom = end // col
     
