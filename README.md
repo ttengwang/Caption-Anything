@@ -22,7 +22,7 @@ Along the River During the Qingming Festival (清明上河图)
 * Interactive demo
 
 ### Updates
-* 2022/04/13: add huggingface demo <a src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" href="https://huggingface.co/spaces/TencentARC/Caption-Anything"> <img src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" alt="Open in Spaces"></a>
+* 2022/04/13: add Hugging Face demo <a src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" href="https://huggingface.co/spaces/TencentARC/Caption-Anything"> <img src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" alt="Open in Spaces"></a>
 * 2022/04/12: Release code
 
 ### Demo
