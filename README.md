@@ -8,11 +8,16 @@
 </a>
 </div>
 
-![](./Image/UI.png)
+<div align=center>
+<img src="./Image/qingming.gif" />
+</div>
+<center> <font color=grey>Along the River During the Qingming Festival (清明上河图)</font></center>
 
 
 
-**Caption-Anything** is a versatile image processing tool that combines the capabilities of [Segment Anything](https://github.com/facebookresearch/segment-anything), Visual Captioning, and [ChatGPT](https://openai.com/blog/chatgpt). Our solution generates descriptive captions for any object within an image, offering a range of language styles to accommodate diverse user preferences. **Caption-Anything** supports visual controls (mouse click) and language controls (length, sentiment, factuality, and language).
+**Caption-Anything** is a versatile image processing tool that combines the capabilities of [Segment Anything](https://github.com/facebookresearch/segment-anything), Visual Captioning, and [ChatGPT](https://openai.com/blog/chatgpt). Our solution generates descriptive captions for any object within an image, offering a range of language styles to accommodate diverse user preferences. 
+
+**Caption-Anything** supports visual controls (mouse click) and language controls (length, sentiment, factuality, and language).
 * Visual controls and language controls for text generation
 * Chat about selected object for detailed understanding
 * Interactive demo
@@ -23,6 +28,10 @@
 
 ### Demo
 Explore the interactive demo of Caption-Anything, which showcases its powerful capabilities in generating captions for various objects within an image. The demo allows users to control visual aspects by clicking on objects, as well as to adjust textual properties such as length, sentiment, factuality, and language.
+
+---
+
+![](./Image/UI.png)
 
 ---
 
