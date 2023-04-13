@@ -352,7 +352,7 @@ with gr.Blocks(
         show_progress=False
     )
     clear_button_text.click(
-        lambda: ([], [], [[], [], [], []]),
+        lambda: ([], [], [[], [], [], []], []),
         [],
         [chatbot, state, click_state, chat_state],
         queue=False,
