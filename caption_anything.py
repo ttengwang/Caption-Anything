@@ -30,7 +30,7 @@ class CaptionAnything():
             self.text_refiner = None
             print('OpenAI GPT is not available')
     
-    def inference(self, image, prompt, controls, disable_gpt=False):
+    def inference(self, image, prompt, controls, disable_gpt=False, enable_wiki=False):
         #  segment with prompt
         print("CA prompt: ", prompt, "CA controls",controls)
         seg_mask = self.segmenter.inference(image, prompt)[0, ...]
@@ -59,7 +59,7 @@ class CaptionAnything():
         if self.args.context_captions:
             context_captions.append(self.captioner.inference(image))
         if not disable_gpt and self.text_refiner is not None:
-            refined_caption = self.text_refiner.inference(query=caption, controls=controls, context=context_captions)
+            refined_caption = self.text_refiner.inference(query=caption, controls=controls, context=context_captions, enable_wiki=enable_wiki)
         else:
             refined_caption = {'raw_caption': caption}                
         out = {'generated_captions': refined_caption,
