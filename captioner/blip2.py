@@ -6,6 +6,8 @@ import pdb
 import cv2
 import numpy as np
 from typing import Union
+
+from tools import is_platform_win
 from .base_captioner import BaseCaptioner
 
 class BLIP2Captioner(BaseCaptioner):
@@ -15,11 +17,15 @@ class BLIP2Captioner(BaseCaptioner):
         self.dialogue = dialogue
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
         self.processor = AutoProcessor.from_pretrained("Salesforce/blip2-opt-2.7b")
-        self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b", device_map = 'sequential', load_in_8bit=True)
+        if is_platform_win():
+            self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b", device_map="sequential", torch_dtype=self.torch_dtype)
+        else:
+            self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b", device_map='sequential', load_in_8bit=True)
+
     @torch.no_grad()
     def inference(self, image: Union[np.ndarray, Image.Image, str], filter=False):
         if type(image) == str: # input path
-                image = Image.open(image)
+            image = Image.open(image)
 
         if not self.dialogue:
             text_prompt = 'Question: what does the image show? Answer:'
@@ -42,7 +48,7 @@ class BLIP2Captioner(BaseCaptioner):
                 out = self.model.generate(**inputs, max_new_tokens=50)
                 captions = self.processor.decode(out[0], skip_special_tokens=True).strip()
                 context.append((input_texts, captions))
-    
+
         return captions
 
 if __name__ == '__main__':
