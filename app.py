@@ -39,9 +39,9 @@ filename = "sam_vit_h_4b8939.pth"
 download_checkpoint(checkpoint_url, folder, filename)
 
 
-title = """<h1 align="center">Caption-Anything</h1>"""
-description = """Gradio demo for Caption Anything, image to dense captioning generation with various language styles. To use it, simply upload your image, or click one of the examples to load them. Code: https://github.com/ttengwang/Caption-Anything
+title = """<p><h1 align="center">Caption-Anything</h1></p>
 """
+description = """<p>Gradio demo for Caption Anything, image to dense captioning generation with various language styles. To use it, simply upload your image, or click one of the examples to load them. Code: https://github.com/ttengwang/Caption-Anything <a href="https://huggingface.co/spaces/TencentARC/Caption-Anything?duplicate=true"><img style="display: inline; margin-top: 0em; margin-bottom: 0em" src="https://bit.ly/3gLdBN6" alt="Duplicate Space" /></a></p>"""
 
 examples = [
     ["test_img/img35.webp"],
@@ -120,7 +120,7 @@ def update_click_state(click_state, caption, click_mode):
         raise NotImplementedError     
 
 
-def chat_with_points(chat_input, click_state, chat_state, state, text_refiner):
+def chat_with_points(chat_input, click_state, chat_state, state, text_refiner, img_caption):
     if text_refiner is None:
         response = "Text refiner is not initilzed, please input openai api key."
         state = state + [(chat_input, response)]
@@ -131,7 +131,7 @@ def chat_with_points(chat_input, click_state, chat_state, state, text_refiner):
     suffix = '\nHuman: {chat_input}\nAI: '
     qa_template = '\nHuman: {q}\nAI: {a}'
     # # "The image is of width {width} and height {height}." 
-    point_chat_prompt = "I am an AI trained to chat with you about an image based on specific points (w, h) you provide, along with their visual descriptions. Please note that (0, 0) refers to the top-left corner of the image, w refers to the width, and h refers to the height. Here are the points and their descriptions you've given me: {points_with_caps} \n Now, let's chat!"
+    point_chat_prompt = "I am an AI trained to chat with you about an image. I am greate at what is going on in any image based on the image information your provide. The overall image description is \"{img_caption}\". You will also provide me objects in the image in details, i.e., their location and visual descriptions. Here are the locations and descriptions of events that happen in the image: {points_with_caps} \n Now, let's chat!"
     prev_visual_context = ""
     pos_points = []
     pos_captions = []
@@ -139,7 +139,7 @@ def chat_with_points(chat_input, click_state, chat_state, state, text_refiner):
         if labels[i] == 1:
             pos_points.append(f"({points[i][0]}, {points[i][0]})")
             pos_captions.append(captions[i])
-            prev_visual_context = prev_visual_context + '\n' + 'Points: ' +', '.join(pos_points) + '. Description: ' + pos_captions[-1]
+            prev_visual_context = prev_visual_context + '\n' + 'There is an event described as  \"{}\" locating at {}'.format(pos_captions[-1], ', '.join(pos_points))
     
     context_length_thres = 500
     prev_history = ""
@@ -150,7 +150,7 @@ def chat_with_points(chat_input, click_state, chat_state, state, text_refiner):
         else:
             break
     
-    chat_prompt = point_chat_prompt.format(**{"points_with_caps": prev_visual_context}) + prev_history + suffix.format(**{"chat_input": chat_input})
+    chat_prompt = point_chat_prompt.format(**{"img_caption":img_caption,"points_with_caps": prev_visual_context}) + prev_history + suffix.format(**{"chat_input": chat_input})
     print('\nchat_prompt: ', chat_prompt)
     response = text_refiner.llm(chat_prompt)
     state = state + [(chat_input, response)]
@@ -217,8 +217,7 @@ def inference_seg_cap(image_input, point_prompt, click_mode, enable_wiki, langua
         yield state, state, click_state, chat_input, refined_image_input, wiki
 
 
-def upload_callback(image_input, state):
-    state = [] + [(None, 'Image size: ' + str(image_input.size))]
+def upload_callback(image_input, state):    
     chat_state = []
     click_state = [[], [], []]
     res = 1024
@@ -227,7 +226,7 @@ def upload_callback(image_input, state):
     if ratio < 1.0:
         image_input = image_input.resize((int(width * ratio), int(height * ratio)))
         print('Scaling input image to {}'.format(image_input.size))
-        
+    state = [] + [(None, 'Image size: ' + str(image_input.size))]
     model = build_caption_anything_with_models(
         args,    
         api_key="",
@@ -239,7 +238,8 @@ def upload_callback(image_input, state):
     image_embedding = model.segmenter.image_embedding
     original_size = model.segmenter.predictor.original_size
     input_size = model.segmenter.predictor.input_size
-    return state, state, chat_state, image_input, click_state, image_input, image_embedding, original_size, input_size
+    img_caption, _ = model.captioner.inference_seg(image_input)
+    return state, state, chat_state, image_input, click_state, image_input, image_embedding, original_size, input_size, img_caption
 
 with gr.Blocks(
     css='''
@@ -255,6 +255,7 @@ with gr.Blocks(
     text_refiner = gr.State(None)
     original_size = gr.State(None)
     input_size = gr.State(None)
+    img_caption = gr.State(None)
 
     gr.Markdown(title)
     gr.Markdown(description)
@@ -345,9 +346,9 @@ with gr.Blocks(
         show_progress=False
     )
     clear_button_image.click(
-        lambda: (None, [], [], [], [[], [], []], "", ""),
+        lambda: (None, [], [], [], [[], [], []], "", "", ""),
         [],
-        [image_input, chatbot, state, chat_state, click_state, wiki_output, origin_image],
+        [image_input, chatbot, state, chat_state, click_state, wiki_output, origin_image, img_caption],
         queue=False,
         show_progress=False
     )
@@ -359,16 +360,17 @@ with gr.Blocks(
         show_progress=False
     )
     image_input.clear(
-        lambda: (None, [], [], [], [[], [], []], "", ""),
+        lambda: (None, [], [], [], [[], [], []], "", "", ""),
         [],
-        [image_input, chatbot, state, chat_state, click_state, wiki_output, origin_image],
+        [image_input, chatbot, state, chat_state, click_state, wiki_output, origin_image, img_caption],
         queue=False,
         show_progress=False
     )
 
-    image_input.upload(upload_callback,[image_input, state], [chatbot, state, chat_state, origin_image, click_state, image_input, image_embedding, original_size, input_size])
-    chat_input.submit(chat_with_points, [chat_input, click_state, chat_state, state, text_refiner], [chatbot, state, chat_state])
-    example_image.change(upload_callback,[example_image, state], [chatbot, state, chat_state, origin_image, click_state, image_input, image_embedding, original_size, input_size])
+    image_input.upload(upload_callback,[image_input, state], [chatbot, state, chat_state, origin_image, click_state, image_input, image_embedding, original_size, input_size, img_caption])
+    chat_input.submit(chat_with_points, [chat_input, click_state, chat_state, state, text_refiner, img_caption], [chatbot, state, chat_state])
+    chat_input.submit(lambda: "", None, chat_input)
+    example_image.change(upload_callback,[example_image, state], [chatbot, state, chat_state, origin_image, click_state, image_input, image_embedding, original_size, input_size, img_caption])
 
     # select coordinate
     image_input.select(inference_seg_cap, 

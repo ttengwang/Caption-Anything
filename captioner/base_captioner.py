@@ -130,13 +130,17 @@ class BaseCaptioner:
         return caption, crop_save_path
         
 
-    def inference_seg(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str], crop_mode="w_bg", filter=False, disable_regular_box = False):
+    def inference_seg(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str]=None, crop_mode="w_bg", filter=False, disable_regular_box = False):
+        if seg_mask is None:
+            seg_mask = np.ones(image.size).astype(bool)
+            
         if type(image) == str:
             image = Image.open(image)
         if type(seg_mask) == str:
             seg_mask = Image.open(seg_mask)
         elif type(seg_mask) == np.ndarray:
             seg_mask = Image.fromarray(seg_mask)
+
         seg_mask = seg_mask.resize(image.size)
         seg_mask = np.array(seg_mask) > 0
         
