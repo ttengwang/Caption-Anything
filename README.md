@@ -77,7 +77,7 @@ pip install -r requirements.txt
 Invoke-WebRequest https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth -OutFile ./segmenter/sam_vit_b_01ec64.pth
 
 # Configure the necessary ChatGPT APIs
-env:OPENAI_API_KEY = '{Your_Private_Openai_Key}'
+$env:OPENAI_API_KEY = '{Your_Private_Openai_Key}'
 
 # Run the Caption-Anything gradio demo.
 python app.py --captioner blip --port 6086 --segmenter base
