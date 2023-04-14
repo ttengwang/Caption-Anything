@@ -1,5 +1,6 @@
+![](./Image/caption_anything_logo.png)
 <div align="center">
-<h1 align="center"> Caption Anything </h1>
+<!-- <h1 align="center"> Caption Anything </h1> -->
 <a src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" href="https://huggingface.co/spaces/TencentARC/Caption-Anything">
     <img src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" alt="Open in Spaces">
 </a>
@@ -8,18 +9,17 @@
 </a>
 </div>
 
+***Caption-Anything*** is a versatile image processing tool that combines the capabilities of [Segment Anything](https://github.com/facebookresearch/segment-anything), Visual Captioning, and [ChatGPT](https://openai.com/blog/chatgpt). Our solution generates descriptive captions for any object within an image, offering a range of language styles to accommodate diverse user preferences. It supports visual controls (mouse click) and language controls (length, sentiment, factuality, and language).
+* Visual controls and language controls for text generation
+* Chat about selected object for detailed understanding
+* Interactive demo
+
 <div align=center>
 <img src="./Image/qingming.gif" />
 <br>    
 Along the River During the Qingming Festival (清明上河图)
 </div>
 <br> 
-
-
-***Caption-Anything*** is a versatile image processing tool that combines the capabilities of [Segment Anything](https://github.com/facebookresearch/segment-anything), Visual Captioning, and [ChatGPT](https://openai.com/blog/chatgpt). Our solution generates descriptive captions for any object within an image, offering a range of language styles to accommodate diverse user preferences. It supports visual controls (mouse click) and language controls (length, sentiment, factuality, and language).
-* Visual controls and language controls for text generation
-* Chat about selected object for detailed understanding
-* Interactive demo
 
 ### Updates
 * 2022/04/13: add Colab Tutorial <a src="https://colab.research.google.com/assets/colab-badge.svg" href="https://colab.research.google.com/github/ttengwang/Caption-Anything/blob/main/notebooks/tutorial.ipynb"> <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab"> </a>
