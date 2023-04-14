@@ -4,6 +4,11 @@ import numpy as np
 from PIL import Image
 import copy
 import time
+import sys
+
+
+def is_platform_win():
+	return sys.platform == "win32"
 
 
 def colormap(rgb=True):
@@ -130,10 +135,10 @@ def vis_add_mask_wo_gaussian(image, background_mask, contour_mask, background_co
 
 	for i in range(3):
 		image[:, :, i] = image[:, :, i] * (1-background_alpha+background_mask*background_alpha) \
-			+ background_color[i] * (background_alpha-background_mask*background_alpha)
-		
+						 + background_color[i] * (background_alpha-background_mask*background_alpha)
+
 		image[:, :, i] = image[:, :, i] * (1-contour_alpha+contour_mask*contour_alpha) \
-			+ contour_color[i] * (contour_alpha-contour_mask*contour_alpha)
+						 + contour_color[i] * (contour_alpha-contour_mask*contour_alpha)
 
 	return image.astype('uint8')
 
@@ -155,7 +160,7 @@ def mask_painter(input_image, input_mask, background_alpha=0.7, background_blur_
 	assert input_image.shape[:2] == input_mask.shape, 'different shape'
 	assert background_blur_radius % 2 * contour_width % 2 > 0, 'background_blur_radius and contour_width must be ODD'
 
-	
+
 	# 0: background, 1: foreground
 	input_mask[input_mask>0] = 255
 
@@ -170,7 +175,7 @@ def mask_painter(input_image, input_mask, background_alpha=0.7, background_blur_
 	painted_image = vis_add_mask(painted_image, 255-contour_mask, color_list[contour_color], contour_alpha, contour_width)
 
 	# painted_image = background_dist_map
-	
+
 	return painted_image
 
 
@@ -257,10 +262,10 @@ def mask_painter_wo_gaussian(input_image, input_mask, background_alpha=0.5, back
 	# downsample input image and mask
 	width, height = input_image.shape[0], input_image.shape[1]
 	res = 1024
-	ratio = min(1.0 * res / max(width, height), 1.0)  
+	ratio = min(1.0 * res / max(width, height), 1.0)
 	input_image = cv2.resize(input_image, (int(height*ratio), int(width*ratio)))
 	input_mask = cv2.resize(input_mask, (int(height*ratio), int(width*ratio)))
-	
+
 	# 0: background, 1: foreground
 	msk = np.clip(input_mask, 0, 1)
 
@@ -271,14 +276,14 @@ def mask_painter_wo_gaussian(input_image, input_mask, background_alpha=0.5, back
 	background_mask, contour_mask = generator_dict[mode](msk, background_radius, contour_radius)
 
 	# paint
-	painted_image = vis_add_mask_wo_gaussian\
+	painted_image = vis_add_mask_wo_gaussian \
 		(input_image, background_mask, contour_mask, color_list[0], color_list[contour_color], background_alpha, contour_alpha)	# black for background
 
 	return painted_image
 
 
 if __name__ == '__main__':
-	
+
 	background_alpha = 0.7  	# transparency of background 1: all black, 0: do nothing
 	background_blur_radius = 31	# radius of background blur, must be odd number
 	contour_width = 11       	# contour width, must be odd number
@@ -288,14 +293,14 @@ if __name__ == '__main__':
 	# load input image and mask
 	input_image = np.array(Image.open('./test_img/painter_input_image.jpg').convert('RGB'))
 	input_mask = np.array(Image.open('./test_img/painter_input_mask.jpg').convert('P'))
-	
+
 	# paint
 	overall_time_1 = 0
 	overall_time_2 = 0
 	overall_time_3 = 0
 	overall_time_4 = 0
 	overall_time_5 = 0
-	
+
 	for i in range(50):
 		t2 = time.time()
 		painted_image_00 = mask_painter_wo_gaussian(input_image, input_mask, background_alpha, background_blur_radius, contour_width, contour_color, contour_alpha, mode='00')
