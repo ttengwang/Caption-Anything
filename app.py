@@ -20,6 +20,7 @@ from segment_anything import sam_model_registry
 from text_refiner import build_text_refiner
 from segmenter import build_segmenter
 
+
 def download_checkpoint(url, folder, filename):
     os.makedirs(folder, exist_ok=True)
     filepath = os.path.join(folder, filename)
@@ -32,11 +33,6 @@ def download_checkpoint(url, folder, filename):
                     f.write(chunk)
 
     return filepath
-checkpoint_url = "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth"
-folder = "segmenter"
-filename = "sam_vit_h_4b8939.pth"
-
-download_checkpoint(checkpoint_url, folder, filename)
 
 
 title = """<h1 align="center">Caption-Anything</h1>"""
@@ -53,7 +49,26 @@ examples = [
     ["test_img/img1.jpg"],
 ]
 
+seg_model_map = {
+    'base': 'vit_b',
+    'large': 'vit_l',
+    'huge': 'vit_h'
+}
+ckpt_url_map = {
+    'vit_b': 'https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth',
+    'vit_l': 'https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth',
+    'vit_h': 'https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth'
+}
+
 args = parse_augment()
+
+checkpoint_url = ckpt_url_map[seg_model_map[args.segmenter]]
+folder = "segmenter"
+filename = os.path.basename(checkpoint_url)
+args.segmenter_checkpoint = os.path.join(folder, filename)
+
+download_checkpoint(checkpoint_url, folder, filename)
+
 # args.device = 'cuda:5'
 # args.disable_gpt = True
 # args.enable_reduce_tokens = False
@@ -61,7 +76,7 @@ args = parse_augment()
 # args.captioner = 'blip'
 # args.regular_box = True
 shared_captioner = build_captioner(args.captioner, args.device, args)
-shared_sam_model = sam_model_registry['vit_h'](checkpoint=args.segmenter_checkpoint).to(args.device)
+shared_sam_model = sam_model_registry[seg_model_map[args.segmenter]](checkpoint=args.segmenter_checkpoint).to(args.device)
 
 
 def build_caption_anything_with_models(args, api_key="", captioner=None, sam_model=None, text_refiner=None, session_id=None):
@@ -102,7 +117,7 @@ def get_prompt(chat_input, click_state, click_mode):
         click_state[1] = labels
     else:
         raise NotImplementedError
-    
+
     prompt = {
         "prompt_type":["click"],
         "input_point":click_state[0],
@@ -117,7 +132,7 @@ def update_click_state(click_state, caption, click_mode):
     elif click_mode == 'Single':
         click_state[2] = [caption]
     else:
-        raise NotImplementedError     
+        raise NotImplementedError
 
 
 def chat_with_points(chat_input, click_state, chat_state, state, text_refiner):
@@ -125,7 +140,7 @@ def chat_with_points(chat_input, click_state, chat_state, state, text_refiner):
         response = "Text refiner is not initilzed, please input openai api key."
         state = state + [(chat_input, response)]
         return state, state, chat_state
-    
+
     points, labels, captions = click_state
     # point_chat_prompt = "I want you act as a chat bot in terms of image. I will give you some points (w, h) in the image and tell you what happed on the point in natural language. Note that (0, 0) refers to the top-left corner of the image, w refers to the width and h refers the height. You should chat with me based on the fact in the image instead of imagination. Now I tell you the points with their visual description:\n{points_with_caps}\nNow begin chatting!"
     suffix = '\nHuman: {chat_input}\nAI: '
@@ -140,7 +155,7 @@ def chat_with_points(chat_input, click_state, chat_state, state, text_refiner):
             pos_points.append(f"({points[i][0]}, {points[i][0]})")
             pos_captions.append(captions[i])
             prev_visual_context = prev_visual_context + '\n' + 'Points: ' +', '.join(pos_points) + '. Description: ' + pos_captions[-1]
-    
+
     context_length_thres = 500
     prev_history = ""
     for i in range(len(chat_state)):
@@ -149,7 +164,7 @@ def chat_with_points(chat_input, click_state, chat_state, state, text_refiner):
             prev_history = prev_history + qa_template.format(**{"q": q, "a": a})
         else:
             break
-    
+
     chat_prompt = point_chat_prompt.format(**{"points_with_caps": prev_visual_context}) + prev_history + suffix.format(**{"chat_input": chat_input})
     print('\nchat_prompt: ', chat_prompt)
     response = text_refiner.llm(chat_prompt)
@@ -157,18 +172,18 @@ def chat_with_points(chat_input, click_state, chat_state, state, text_refiner):
     chat_state = chat_state + [(chat_input, response)]
     return state, state, chat_state
 
-def inference_seg_cap(image_input, point_prompt, click_mode, enable_wiki, language, sentiment, factuality, 
-                length, image_embedding, state, click_state, original_size, input_size, text_refiner, evt:gr.SelectData):
-    
+def inference_seg_cap(image_input, point_prompt, click_mode, enable_wiki, language, sentiment, factuality,
+                      length, image_embedding, state, click_state, original_size, input_size, text_refiner, evt:gr.SelectData):
+
     model = build_caption_anything_with_models(
-        args,    
+        args,
         api_key="",
         captioner=shared_captioner,
         sam_model=shared_sam_model,
         text_refiner=text_refiner,
         session_id=iface.app_id
     )
-    
+
     model.segmenter.image_embedding = image_embedding
     model.segmenter.predictor.original_size = original_size
     model.segmenter.predictor.input_size = input_size
@@ -178,11 +193,11 @@ def inference_seg_cap(image_input, point_prompt, click_mode, enable_wiki, langua
         coordinate = "[[{}, {}, 1]]".format(str(evt.index[0]), str(evt.index[1]))
     else:
         coordinate = "[[{}, {}, 0]]".format(str(evt.index[0]), str(evt.index[1]))
-        
+
     controls = {'length': length,
-             'sentiment': sentiment,
-             'factuality': factuality,
-             'language': language}
+                'sentiment': sentiment,
+                'factuality': factuality,
+                'language': language}
 
     # click_coordinate = "[[{}, {}, 1]]".format(str(evt.index[0]), str(evt.index[1])) 
     # chat_input = click_coordinate
@@ -227,9 +242,9 @@ def upload_callback(image_input, state):
     if ratio < 1.0:
         image_input = image_input.resize((int(width * ratio), int(height * ratio)))
         print('Scaling input image to {}'.format(image_input.size))
-        
+
     model = build_caption_anything_with_models(
-        args,    
+        args,
         api_key="",
         captioner=shared_captioner,
         sam_model=shared_sam_model,
@@ -242,7 +257,7 @@ def upload_callback(image_input, state):
     return state, state, chat_state, image_input, click_state, image_input, image_embedding, original_size, input_size
 
 with gr.Blocks(
-    css='''
+        css='''
     #image_upload{min-height:400px}
     #image_upload [data-testid="image"], #image_upload [data-testid="image"] > div{min-height: 600px}
     '''
@@ -281,13 +296,13 @@ with gr.Blocks(
                         clear_button_image = gr.Button(value="Clear Image", interactive=True)
             with gr.Column(visible=False) as modules_need_gpt:
                 with gr.Row(scale=1.0):
-                        language = gr.Dropdown(['English', 'Chinese', 'French', "Spanish", "Arabic", "Portuguese", "Cantonese"], value="English", label="Language", interactive=True)
-                        sentiment = gr.Radio(
-                            choices=["Positive", "Natural", "Negative"],
-                            value="Natural",
-                            label="Sentiment",
-                            interactive=True,
-                        )
+                    language = gr.Dropdown(['English', 'Chinese', 'French', "Spanish", "Arabic", "Portuguese", "Cantonese"], value="English", label="Language", interactive=True)
+                    sentiment = gr.Radio(
+                        choices=["Positive", "Natural", "Negative"],
+                        value="Natural",
+                        label="Sentiment",
+                        interactive=True,
+                    )
                 with gr.Row(scale=1.0):
                     factuality = gr.Radio(
                         choices=["Factual", "Imagination"],
@@ -304,10 +319,10 @@ with gr.Blocks(
                         label="Generated Caption Length",
                     )
                     enable_wiki = gr.Radio(
-                            choices=["Yes",  "No"],
-                            value="No",
-                            label="Enable Wiki",
-                            interactive=True)
+                        choices=["Yes",  "No"],
+                        value="No",
+                        label="Enable Wiki",
+                        interactive=True)
             with gr.Column(visible=True) as modules_not_need_gpt3:
                 gr.Examples(
                     examples=examples,
@@ -332,11 +347,11 @@ with gr.Blocks(
                     with gr.Row():
                         clear_button_text = gr.Button(value="Clear Text", interactive=True)
                         submit_button_text = gr.Button(value="Submit", interactive=True, variant="primary")
-    
+
     openai_api_key.submit(init_openai_api_key, inputs=[openai_api_key], outputs=[modules_need_gpt,modules_need_gpt2, modules_need_gpt3, modules_not_need_gpt, modules_not_need_gpt2, modules_not_need_gpt3, text_refiner])
     enable_chatGPT_button.click(init_openai_api_key, inputs=[openai_api_key], outputs=[modules_need_gpt,modules_need_gpt2, modules_need_gpt3, modules_not_need_gpt, modules_not_need_gpt2, modules_not_need_gpt3, text_refiner])
     disable_chatGPT_button.click(init_openai_api_key, outputs=[modules_need_gpt,modules_need_gpt2, modules_need_gpt3, modules_not_need_gpt, modules_not_need_gpt2, modules_not_need_gpt3, text_refiner])
-    
+
     clear_button_clike.click(
         lambda x: ([[], [], []], x, ""),
         [origin_image],
@@ -371,25 +386,25 @@ with gr.Blocks(
     example_image.change(upload_callback,[example_image, state], [chatbot, state, chat_state, origin_image, click_state, image_input, image_embedding, original_size, input_size])
 
     # select coordinate
-    image_input.select(inference_seg_cap, 
-        inputs=[
-        origin_image,
-        point_prompt,
-        click_mode,
-        enable_wiki,
-        language,
-        sentiment,
-        factuality,
-        length,
-        image_embedding,
-        state,
-        click_state,
-        original_size, 
-        input_size,
-        text_refiner
-        ],
-        outputs=[chatbot, state, click_state, chat_input, image_input, wiki_output],
-        show_progress=False, queue=True)
-    
+    image_input.select(inference_seg_cap,
+                       inputs=[
+                           origin_image,
+                           point_prompt,
+                           click_mode,
+                           enable_wiki,
+                           language,
+                           sentiment,
+                           factuality,
+                           length,
+                           image_embedding,
+                           state,
+                           click_state,
+                           original_size,
+                           input_size,
+                           text_refiner
+                       ],
+                       outputs=[chatbot, state, click_state, chat_input, image_input, wiki_output],
+                       show_progress=False, queue=True)
+
 iface.queue(concurrency_count=5, api_open=False, max_size=10)
 iface.launch(server_name="0.0.0.0", enable_queue=True, server_port=args.port, share=args.gradio_share)
