@@ -42,6 +42,8 @@ Explore the interactive demo of Caption-Anything, which showcases its powerful c
 ![](./Image/demo2.png)
 
 ### Getting Started
+
+#### Linux
 ```bash
 # Clone the repository:
 git clone https://github.com/ttengwang/caption-anything.git
@@ -60,6 +62,27 @@ export OPENAI_API_KEY={Your_Private_Openai_Key}
 python app.py --captioner blip2 --port 6086
 ```
 
+#### Windows(powershell)
+Tested in Windows11 using Nvidia 3070-8G.
+
+```shell
+# Clone the repository:
+git clone https://github.com/ttengwang/caption-anything.git
+cd caption-anything
+
+# Install dependencies:
+pip install -r requirements.txt
+
+# Download the [base SAM checkpoints](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth).
+Invoke-WebRequest https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth -OutFile ./segmenter/sam_vit_b_01ec64.pth
+
+# Configure the necessary ChatGPT APIs
+env:OPENAI_API_KEY = '{Your_Private_Openai_Key}'
+
+# Run the Caption-Anything gradio demo.
+python app.py --captioner blip --port 6086 --segmenter base
+```
+
 ## Usage
 ```python
 from caption_anything import CaptionAnything, parse_augment
@@ -69,13 +92,13 @@ visual_controls = {
     "input_point":[[500, 300], [1000, 500]],
     "input_label":[1, 0], # 1/0 for positive/negative points
     "multimask_output":"True",
-    }
+}
 language_controls = {
-    "length": "30", 
+    "length": "30",
     "sentiment": "natural", # "positive","negative", "natural"
     "imagination": "False", # "True", "False"
     "language": "English" # "Chinese", "Spanish", etc.
-    }
+}
 model = CaptionAnything(args, openai_api_key)
 out = model.inference(image_path, visual_controls, language_controls)
 ```

@@ -72,7 +72,7 @@ class CaptionAnything():
 def parse_augment():
     parser = argparse.ArgumentParser()
     parser.add_argument('--captioner', type=str, default="blip2")
-    parser.add_argument('--segmenter', type=str, default="base")
+    parser.add_argument('--segmenter', type=str, default="huge")
     parser.add_argument('--text_refiner', type=str, default="base")
     parser.add_argument('--segmenter_checkpoint', type=str, default="segmenter/sam_vit_h_4b8939.pth")
     parser.add_argument('--seg_crop_mode', type=str, default="wo_bg", choices=['wo_bg', 'w_bg'], help="whether to add or remove background of the image when captioning")
