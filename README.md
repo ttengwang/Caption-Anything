@@ -109,6 +109,15 @@ out = model.inference(image_path, visual_controls, language_controls)
 The project is based on [Segment Anything](https://github.com/facebookresearch/segment-anything), BLIP/BLIP-2, [ChatGPT](https://openai.com/blog/chatgpt). Thanks for the authors for their efforts.
 
 ## Contributor
+Our project wouldn't be possible without the contributions of these amazing people! Thank you all for making this project better.
+
+[Teng Wang](http://ttengwang.com/) @ Southern University of Science and Technology & HKU & Tencent ARC Lab \
+[Jinrui Zhang](https://github.com/zjr2000) @ Southern University of Science and Technology \
+[Junjie Fei](https://github.com/JunjieFei) @ Xiamen University \
+[Zhe Li](https://github.com/memoryunreal) @ Southern University of Science and Technology \
+[Yunlong Tang](https://github.com/yunlong10) @ Southern University of Science and Technology \
+[Mingqi Gao](https://mingqigao.com/) @ Southern University of Science and Technology & University of Warwick \
+[Hao Zheng](https://github.com/zh-plus) @ Southern University of Science and Technology
 
 <a href="https://github.com/ttengwang/Caption-Anything/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=ttengwang/Caption-Anything" />
