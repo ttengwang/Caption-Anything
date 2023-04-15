@@ -202,6 +202,8 @@ def inference_seg_cap(image_input, point_prompt, click_mode, enable_wiki, langua
     # chat_input = click_coordinate
     prompt = get_prompt(coordinate, click_state, click_mode)
     print('prompt: ', prompt, 'controls: ', controls)
+    input_points = prompt['input_point']
+    input_labels = prompt['input_label']
 
     enable_wiki = True if enable_wiki in ['True', 'TRUE', 'true', True, 'Yes', 'YES', 'yes'] else False
     out = model.inference(image_input, prompt, controls, disable_gpt=True, enable_wiki=enable_wiki)
@@ -218,7 +220,7 @@ def inference_seg_cap(image_input, point_prompt, click_mode, enable_wiki, langua
     input_mask = np.array(out['mask'].convert('P'))
     image_input = mask_painter(np.array(image_input), input_mask)
     origin_image_input = image_input
-    image_input = create_bubble_frame(image_input, text, (evt.index[0], evt.index[1]))
+    image_input = create_bubble_frame(image_input, text, (evt.index[0], evt.index[1]), input_mask, input_points=input_points, input_labels=input_labels)
 
     yield state, state, click_state, chat_input, image_input, wiki
     if not args.disable_gpt and model.text_refiner:
@@ -227,7 +229,7 @@ def inference_seg_cap(image_input, point_prompt, click_mode, enable_wiki, langua
         new_cap = refined_caption['caption']
         wiki = refined_caption['wiki']
         state = state + [(None, f"caption: {new_cap}")]
-        refined_image_input = create_bubble_frame(origin_image_input, new_cap, (evt.index[0], evt.index[1]))
+        refined_image_input = create_bubble_frame(origin_image_input, new_cap, (evt.index[0], evt.index[1]), input_mask, input_points=input_points, input_labels=input_labels)
         yield state, state, click_state, chat_input, refined_image_input, wiki
 
 
