@@ -18,7 +18,7 @@ def wrap_text(text, font, max_width):
     lines.append(current_line)
     return lines
 
-def create_bubble_frame(image, text, point, segmask, input_points, input_labels, font_path='DejaVuSansCondensed-Bold.ttf', font_size_ratio=0.033, point_size_ratio=0.01):
+def create_bubble_frame(image, text, point, segmask, input_points, input_labels, font_path='times_with_simsun.ttf', font_size_ratio=0.033, point_size_ratio=0.01):
     # Load the image
     if type(image) == np.ndarray:
         image = Image.fromarray(image)
