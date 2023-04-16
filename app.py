@@ -59,7 +59,7 @@ ckpt_url_map = {
     'vit_l': 'https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth',
     'vit_h': 'https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth'
 }
-
+os.makedirs('result', exist_ok=True)
 args = parse_augment()
 
 checkpoint_url = ckpt_url_map[seg_model_map[args.segmenter]]
