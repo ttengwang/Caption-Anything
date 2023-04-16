@@ -27,14 +27,21 @@ class BaseSegmenter:
         self.image_embedding = None
         self.image = None
 
-    
-    @torch.no_grad()
-    def set_image(self, image: Union[np.ndarray, Image.Image, str]):
+    def read_image(self, image: Union[np.ndarray, Image.Image, str]):
         if type(image) == str: # input path
             image = Image.open(image)
             image = np.array(image)
         elif type(image) == Image.Image:
             image = np.array(image)
+        elif type(image) == np.ndarray:
+            image = image
+        else:
+            raise TypeError
+        return image
+    
+    @torch.no_grad()
+    def set_image(self, image: Union[np.ndarray, Image.Image, str]):
+        image = self.read_image(image)
         self.image = image
         if self.reuse_feature:
             self.predictor.set_image(image)
@@ -43,8 +50,9 @@ class BaseSegmenter:
 
     
     @torch.no_grad()
-    def inference(self, image, control):
+    def inference(self, image: Union[np.ndarray, Image.Image, str], control: dict):
         if 'everything' in control['prompt_type']:
+            image = self.read_image(image)
             masks = self.mask_generator.generate(image)
             new_masks = np.concatenate([mask["segmentation"][np.newaxis,:] for mask in masks])
             return new_masks
