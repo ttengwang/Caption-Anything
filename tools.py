@@ -111,10 +111,8 @@ def vis_add_mask(image, mask, color, alpha, kernel_size):
 	color = np.array(color)
 	mask = mask.astype('float').copy()
 	mask = (cv2.GaussianBlur(mask, (kernel_size, kernel_size), kernel_size) / 255.) * (alpha)
-
 	for i in range(3):
 		image[:, :, i] = image[:, :, i] * (1-alpha+mask) + color[i] * (alpha-mask)
-
 	return image
 
 
@@ -143,16 +141,18 @@ def vis_add_mask_wo_gaussian(image, background_mask, contour_mask, background_co
 	return image.astype('uint8')
 
 
-def mask_painter(input_image, input_mask, background_alpha=0.7, background_blur_radius=7, contour_width=3, contour_color=3, contour_alpha=1):
+def mask_painter(input_image, input_mask, background_alpha=0.7, background_blur_radius=7, contour_width=3, contour_color=3, contour_alpha=1, background_color=0, paint_foreground=False):
 	"""
-	Input:
-	input_image: numpy array
-	input_mask: numpy array
+	add color mask to the background/foreground area
+	input_image: numpy array (w, h, C)
+	input_mask: numpy array (w, h)
 	background_alpha: transparency of background, [0, 1], 1: all black, 0: do nothing
 	background_blur_radius: radius of background blur, must be odd number
 	contour_width: width of mask contour, must be odd number
 	contour_color: color index (in color map) of mask contour, 0: black, 1: white, >1: others
+	background_color: color index of the background (area with input_mask == False)
 	contour_alpha: transparency of mask contour, [0, 1], if 0: no contour highlighted
+	paint_foreground: True for paint on foreground, False for background. Default: Flase
 
 	Output:
 	painted_image: numpy array
@@ -160,12 +160,13 @@ def mask_painter(input_image, input_mask, background_alpha=0.7, background_blur_
 	assert input_image.shape[:2] == input_mask.shape, 'different shape'
 	assert background_blur_radius % 2 * contour_width % 2 > 0, 'background_blur_radius and contour_width must be ODD'
 
-
 	# 0: background, 1: foreground
 	input_mask[input_mask>0] = 255
-
-	# mask background
-	painted_image = vis_add_mask(input_image, input_mask, color_list[0], background_alpha, background_blur_radius)	# black for background
+	if paint_foreground:
+		painted_image = vis_add_mask(input_image, 255 - input_mask, color_list[background_color], background_alpha, background_blur_radius)	# black for background
+	else:
+  		# mask background
+		painted_image = vis_add_mask(input_image, input_mask, color_list[background_color], background_alpha, background_blur_radius)	# black for background
 	# mask contour
 	contour_mask = input_mask.copy()
 	contour_mask = cv2.Canny(contour_mask, 100, 200)	# contour extraction
@@ -173,11 +174,28 @@ def mask_painter(input_image, input_mask, background_alpha=0.7, background_blur_
 	kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (contour_width, contour_width))
 	contour_mask = cv2.dilate(contour_mask, kernel)
 	painted_image = vis_add_mask(painted_image, 255-contour_mask, color_list[contour_color], contour_alpha, contour_width)
-
-	# painted_image = background_dist_map
-
 	return painted_image
 
+
+def mask_painter_foreground_all(input_image, input_masks, background_alpha=0.7, background_blur_radius=7, contour_width=3, contour_color=3, contour_alpha=1):
+	"""
+	paint color mask on the all foreground area
+	input_image: numpy array with shape (w, h, C)
+	input_mask: list of masks, each mask is a numpy array with shape (w,h)
+	background_alpha: transparency of background, [0, 1], 1: all black, 0: do nothing
+	background_blur_radius: radius of background blur, must be odd number
+	contour_width: width of mask contour, must be odd number
+	contour_color: color index (in color map) of mask contour, 0: black, 1: white, >1: others
+	background_color: color index of the background (area with input_mask == False)
+	contour_alpha: transparency of mask contour, [0, 1], if 0: no contour highlighted
+
+	Output:
+	painted_image: numpy array
+	"""
+	
+	for i, input_mask in enumerate(input_masks):
+		input_image = mask_painter(input_image, input_mask,  background_alpha, background_blur_radius, contour_width, contour_color, contour_alpha, background_color=i + 2, paint_foreground=True)
+	return input_image
 
 def mask_generator_00(mask, background_radius, contour_radius):
 	# no background width when '00'
