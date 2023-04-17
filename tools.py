@@ -1,4 +1,7 @@
+import os
+
 import cv2
+import requests
 import torch
 import numpy as np
 from PIL import Image
@@ -346,3 +349,17 @@ if __name__ == '__main__':
 
 	painted_image_11 = Image.fromarray(painted_image_11)
 	painted_image_11.save('./test_img/painter_output_image_11.png')
+
+
+def download_checkpoint(url, folder, filename):
+    os.makedirs(folder, exist_ok=True)
+    filepath = os.path.join(folder, filename)
+
+    if not os.path.exists(filepath):
+        response = requests.get(url, stream=True)
+        with open(filepath, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+
+    return filepath
