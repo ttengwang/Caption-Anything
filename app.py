@@ -37,7 +37,7 @@ def download_checkpoint(url, folder, filename):
 
 title = """<p><h1 align="center">Caption-Anything</h1></p>
 """
-description = """<p>Gradio demo for Caption Anything, image to dense captioning generation with various language styles. To use it, simply upload your image, or click one of the examples to load them. Code: https://github.com/ttengwang/Caption-Anything <a href="https://huggingface.co/spaces/TencentARC/Caption-Anything?duplicate=true"><img style="display: inline; margin-top: 0em; margin-bottom: 0em" src="https://bit.ly/3gLdBN6" alt="Duplicate Space" /></a></p>"""
+description = """<p>Gradio demo for Caption Anything, image to dense captioning generation with various language styles. To use it, simply upload your image, or click one of the examples to load them. Code: <a href="https://github.com/ttengwang/Caption-Anything">https://github.com/ttengwang/Caption-Anything</a> <a href="https://huggingface.co/spaces/TencentARC/Caption-Anything?duplicate=true"><img style="display: inline; margin-top: 0em; margin-bottom: 0em" src="https://bit.ly/3gLdBN6" alt="Duplicate Space" /></a></p>"""
 
 examples = [
     ["test_img/img35.webp"],
@@ -119,18 +119,21 @@ def get_prompt(chat_input, click_state, click_mode):
         raise NotImplementedError
 
     prompt = {
-        "prompt_type":["click"],
-        "input_point":click_state[0],
-        "input_label":click_state[1],
-        "multimask_output":"True",
+        "prompt_type": ["click"],
+        "input_point": click_state[0],
+        "input_label": click_state[1],
+        "multimask_output": "True",
     }
     return prompt
+
 
 def update_click_state(click_state, caption, click_mode):
     if click_mode == 'Continuous':
         click_state[2].append(caption)
     elif click_mode == 'Single':
         click_state[2] = [caption]
+    # elif click_mode == 'Draw':
+    #     click_state[2] = [caption]
     else:
         raise NotImplementedError
 
@@ -233,7 +236,7 @@ def inference_seg_cap(image_input, point_prompt, click_mode, enable_wiki, langua
         yield state, state, click_state, chat_input, refined_image_input, wiki
 
 
-def upload_callback(image_input, state):    
+def upload_callback(image_input, state):
     chat_state = []
     click_state = [[], [], []]
     res = 1024
@@ -321,7 +324,7 @@ with gr.Blocks(
                         label="Generated Caption Length",
                     )
                     enable_wiki = gr.Radio(
-                        choices=["Yes",  "No"],
+                        choices=["Yes", "No"],
                         value="No",
                         label="Enable Wiki",
                         interactive=True)
@@ -334,7 +337,7 @@ with gr.Blocks(
             openai_api_key = gr.Textbox(
                 placeholder="Input openAI API key",
                 show_label=False,
-                label = "OpenAI API Key",
+                label="OpenAI API Key",
                 lines=1,
                 type="password")
             with gr.Row(scale=0.5):
