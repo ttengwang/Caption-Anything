@@ -61,7 +61,9 @@ wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth ./segm
 export OPENAI_API_KEY={Your_Private_Openai_Key}
 
 # Run the Caption-Anything gradio demo.
-python app.py --captioner blip2 --port 6086
+python app.py --segmenter huge --captioner blip2 --port 6086 # requires 11.7G GPU memory
+#python app.py --segmenter base --captioner blip2 # requires 8.5G GPU memory
+#python app.py --segmenter base --captioner blip # requires 5.5G GPU memory
 ```
 
 #### Windows(powershell)
