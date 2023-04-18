@@ -120,16 +120,17 @@ def chat_with_points(chat_input, click_state, chat_state, state, text_refiner, i
     suffix = '\nHuman: {chat_input}\nAI: '
     qa_template = '\nHuman: {q}\nAI: {a}'
     # # "The image is of width {width} and height {height}." 
-    point_chat_prompt = "I am an AI trained to chat with you about an image. I am greate at what is going on in any image based on the image information your provide. The overall image description is \"{img_caption}\". You will also provide me objects in the image in details, i.e., their location and visual descriptions. Here are the locations and descriptions of events that happen in the image: {points_with_caps} \n Now, let's chat!"
+    point_chat_prompt = "I am an AI trained to chat with you about an image. I am greate at what is going on in any image based on the image information your provide. The overall image description is \"{img_caption}\". You will also provide me objects in the image in details, i.e., their location and visual descriptions. Here are the locations and descriptions of events that happen in the image: {points_with_caps} \nYou are required to use language instead of number to describe these positions. Now, let's chat!"
     prev_visual_context = ""
     pos_points = []
     pos_captions = []
+
     for i in range(len(points)):
         if labels[i] == 1:
-            pos_points.append(f"({points[i][0]}, {points[i][0]})")
+            pos_points.append(f"(X:{points[i][0]}, Y:{points[i][1]})")
             pos_captions.append(captions[i])
-            prev_visual_context = prev_visual_context + '\n' + 'There is an event described as  \"{}\" locating at {}'.format(
-                pos_captions[-1], ', '.join(pos_points))
+    prev_visual_context = prev_visual_context + '\n' + 'There is an event described as  \"{}\" locating at {}'.format(
+        pos_captions[-1], ', '.join(pos_points))
 
     context_length_thres = 500
     prev_history = ""
