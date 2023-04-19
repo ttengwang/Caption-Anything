@@ -108,32 +108,8 @@ def update_click_state(click_state, caption, click_mode):
         click_state[2].append(caption)
     elif click_mode == 'Single':
         click_state[2] = [caption]
-    # elif click_mode == 'Draw':
-    #     click_state[2] = [caption]
     else:
         raise NotImplementedError
-
-
-def update_image_visibility(click_mode):
-    if click_mode == 'Draw':
-        print('Changing sketch visibility...')
-        return [gr.update(visible=False), gr.update(visible=True)]
-    else:
-        print('Changing image visibility...')
-        return [gr.update(visible=True), gr.update(visible=False)]
-
-
-def update_image_value(click_mode, image_input, sketcher_input):
-    if sketcher_input and not ImageChops.difference(image_input, sketcher_input['image']).getbbox():
-        # Same image, don't update
-        return gr.update(), gr.update()
-
-    if click_mode == 'Draw':
-        print('Changing sketch value...')
-        return gr.update(), image_input
-    else:
-        print('Changing image value...')
-        return sketcher_input['image'], gr.update()
 
 
 def chat_with_points(chat_input, click_state, chat_state, state, text_refiner, img_caption):
@@ -195,9 +171,9 @@ def upload_callback(image_input, state):
         session_id=iface.app_id
     )
     model.segmenter.set_image(image_input)
-    image_embedding = model.segmenter.image_embedding
-    original_size = model.segmenter.predictor.original_size
-    input_size = model.segmenter.predictor.input_size
+    image_embedding = model.image_embedding
+    original_size = model.original_size
+    input_size = model.input_size
     img_caption, _ = model.captioner.inference_seg(image_input)
     return state, state, chat_state, image_input, click_state, image_input, image_input, image_embedding, original_size, \
         input_size, img_caption

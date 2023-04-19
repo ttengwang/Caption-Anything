@@ -23,10 +23,34 @@ class CaptionAnything:
             else:
                 self.init_refiner(api_key)
 
-    def setup(self, image_embedding, original_size, input_size, is_image_set):
+    @property
+    def image_embedding(self):
+        return self.segmenter.image_embedding
+
+    @image_embedding.setter
+    def image_embedding(self, image_embedding):
         self.segmenter.image_embedding = image_embedding
+
+    @property
+    def original_size(self):
+        return self.segmenter.predictor.original_size
+
+    @original_size.setter
+    def original_size(self, original_size):
         self.segmenter.predictor.original_size = original_size
+
+    @property
+    def input_size(self):
+        return self.segmenter.predictor.input_size
+
+    @input_size.setter
+    def input_size(self, input_size):
         self.segmenter.predictor.input_size = input_size
+
+    def setup(self, image_embedding, original_size, input_size, is_image_set):
+        self.image_embedding = image_embedding
+        self.original_size = original_size
+        self.input_size = input_size
         self.segmenter.predictor.is_image_set = is_image_set
 
     def init_refiner(self, api_key):
