@@ -1,7 +1,8 @@
 from PIL import Image, ImageDraw, ImageFont
 import copy
 import numpy as np
-import cv2 
+import cv2
+
 
 def wrap_text(text, font, max_width):
     lines = []
@@ -18,11 +19,18 @@ def wrap_text(text, font, max_width):
     lines.append(current_line)
     return lines
 
-def create_bubble_frame(image, text, point, segmask, input_points, input_labels, font_path='times_with_simsun.ttf', font_size_ratio=0.033, point_size_ratio=0.01):
+
+def create_bubble_frame(image, text, point, segmask, input_points=(), input_labels=(),
+                        font_path='times_with_simsun.ttf', font_size_ratio=0.033, point_size_ratio=0.01):
     # Load the image
+    if input_points is None:
+        input_points = []
+    if input_labels is None:
+        input_labels = []
+
     if type(image) == np.ndarray:
         image = Image.fromarray(image)
-        
+
     image = copy.deepcopy(image)
     width, height = image.size
 
@@ -47,19 +55,19 @@ def create_bubble_frame(image, text, point, segmask, input_points, input_labels,
     bubble_height = text_height + 2 * padding
 
     # Create a new image for the bubble frame
-    bubble = Image.new('RGBA', (bubble_width, bubble_height), (255,248, 220, 0))
+    bubble = Image.new('RGBA', (bubble_width, bubble_height), (255, 248, 220, 0))
 
     # Draw the bubble frame on the new image
     draw = ImageDraw.Draw(bubble)
     # draw.rectangle([(0, 0), (bubble_width - 1, bubble_height - 1)], fill=(255, 255, 255, 0), outline=(255, 255, 255, 0), width=2)
-    draw_rounded_rectangle(draw, (0, 0, bubble_width - 1, bubble_height - 1), point_size * 2, 
-                        fill=(255,248, 220, 120), outline=None, width=2)
+    draw_rounded_rectangle(draw, (0, 0, bubble_width - 1, bubble_height - 1), point_size * 2,
+                           fill=(255, 248, 220, 120), outline=None, width=2)
     # Draw the wrapped text line by line
     y_text = padding
     for line in lines:
         draw.text((padding, y_text), line, font=font, fill=(0, 0, 0, 255))
         y_text += font.getsize(line)[1]
-        
+
     # Determine the point by the min area rect of mask
     try:
         ret, thresh = cv2.threshold(segmask, 127, 255, 0)
@@ -109,7 +117,11 @@ def draw_rounded_rectangle(draw, xy, corner_radius, fill=None, outline=None, wid
         width=width
     )
 
-    draw.pieslice((x1, y1, x1 + corner_radius * 2, y1 + corner_radius * 2), 180, 270, fill=fill, outline=outline, width=width)
-    draw.pieslice((x2 - corner_radius * 2, y1, x2, y1 + corner_radius * 2), 270, 360, fill=fill, outline=outline, width=width)
-    draw.pieslice((x2 - corner_radius * 2, y2 - corner_radius * 2, x2, y2), 0, 90, fill=fill, outline=outline, width=width)
-    draw.pieslice((x1, y2 - corner_radius * 2, x1 + corner_radius * 2, y2), 90, 180, fill=fill, outline=outline, width=width)
+    draw.pieslice((x1, y1, x1 + corner_radius * 2, y1 + corner_radius * 2), 180, 270, fill=fill, outline=outline,
+                  width=width)
+    draw.pieslice((x2 - corner_radius * 2, y1, x2, y1 + corner_radius * 2), 270, 360, fill=fill, outline=outline,
+                  width=width)
+    draw.pieslice((x2 - corner_radius * 2, y2 - corner_radius * 2, x2, y2), 0, 90, fill=fill, outline=outline,
+                  width=width)
+    draw.pieslice((x1, y2 - corner_radius * 2, x1 + corner_radius * 2, y2), 90, 180, fill=fill, outline=outline,
+                  width=width)

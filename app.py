@@ -1,15 +1,50 @@
-import gradio as gr
-from caption_anything import CaptionAnything
+import os
 import json
-from caption_anything import parse_augment
+from typing import List
+
+import PIL
+import gradio as gr
 import numpy as np
+
+from gradio import processing_utils
+from PIL import ImageChops, Image, ImageDraw
+
+from caption_anything import CaptionAnything, parse_augment
+from segment_anything import sam_model_registry
 from image_editing_utils import create_bubble_frame
 from tools import mask_painter, download_checkpoint
-import os
 from captioner import build_captioner
-from segment_anything import sam_model_registry
 from text_refiner import build_text_refiner
 from segmenter import build_segmenter
+
+
+class ImageMask(gr.components.Image):
+    """
+    Image component that also show a mask, which sets: source="canvas", tool="sketch", interactive=True.
+    """
+
+    is_template = True
+
+    def __init__(self, **kwargs):
+        super().__init__(source="upload", tool="sketch", interactive=True, brush_radius=20, **kwargs)
+
+    def preprocess(self, x):
+        """
+        Customize the preprocess function to support returning mask.
+
+        Returns: {'image': Image, 'mask': Mask} if tool is sketch and source is upload or webcam. Else, return Image.
+
+        """
+        if x is None:
+            return x
+        if self.tool == "sketch" and self.source in ["upload", "webcam"] and type(x) != dict:
+            decode_image = processing_utils.decode_base64_to_image(x)
+            width, height = decode_image.size
+            mask = np.zeros((height, width, 4), dtype=np.uint8)
+            mask[..., -1] = 255
+            mask = self.postprocess(mask)
+            x = {'image': x, 'mask': mask}
+        return super().preprocess(x)
 
 
 def prepare_segmenter(args):
@@ -70,7 +105,7 @@ def init_openai_api_key(api_key=""):
         visible=True), text_refiner
 
 
-def get_prompt(chat_input, click_state, click_mode):
+def get_click_prompt(chat_input, click_state, click_mode):
     inputs = json.loads(chat_input)
     if click_mode == 'Continuous':
         points = click_state[0]
@@ -107,6 +142,28 @@ def update_click_state(click_state, caption, click_mode):
     #     click_state[2] = [caption]
     else:
         raise NotImplementedError
+
+
+def update_image_visibility(click_mode):
+    if click_mode == 'Draw':
+        print('Changing sketch visibility...')
+        return [gr.update(visible=False), gr.update(visible=True)]
+    else:
+        print('Changing image visibility...')
+        return [gr.update(visible=True), gr.update(visible=False)]
+
+
+def update_image_value(click_mode, image_input, sketcher_input):
+    if sketcher_input and not ImageChops.difference(image_input, sketcher_input['image']).getbbox():
+        # Same image, don't update
+        return gr.update(), gr.update()
+
+    if click_mode == 'Draw':
+        print('Changing sketch value...')
+        return gr.update(), image_input
+    else:
+        print('Changing image value...')
+        return sketcher_input['image'], gr.update()
 
 
 def chat_with_points(chat_input, click_state, chat_state, state, text_refiner, img_caption):
@@ -179,13 +236,14 @@ def inference_seg_cap(image_input, point_prompt, click_mode, enable_wiki, langua
 
     # click_coordinate = "[[{}, {}, 1]]".format(str(evt.index[0]), str(evt.index[1])) 
     # chat_input = click_coordinate
-    prompt = get_prompt(coordinate, click_state, click_mode)
+    prompt = get_click_prompt(coordinate, click_state, click_mode)
     print('prompt: ', prompt, 'controls: ', controls)
     input_points = prompt['input_point']
     input_labels = prompt['input_label']
 
     enable_wiki = True if enable_wiki in ['True', 'TRUE', 'true', True, 'Yes', 'YES', 'yes'] else False
     out = model.inference(image_input, prompt, controls, disable_gpt=True, enable_wiki=enable_wiki)
+
     state = state + [("Image point: {}, Input label: {}".format(prompt["input_point"], prompt["input_label"]), None)]
     # for k, v in out['generated_captions'].items():
     #     state = state + [(f'{k}: {v}', None)]
@@ -237,8 +295,177 @@ def upload_callback(image_input, state):
     original_size = model.segmenter.predictor.original_size
     input_size = model.segmenter.predictor.input_size
     img_caption, _ = model.captioner.inference_seg(image_input)
-    return state, state, chat_state, image_input, click_state, image_input, image_embedding, original_size, \
+    return state, state, chat_state, image_input, click_state, image_input, image_input, image_embedding, original_size, \
         input_size, img_caption
+
+
+def inference_click(image_input, point_prompt, click_mode, enable_wiki, language, sentiment, factuality,
+                    length, image_embedding, state, click_state, original_size, input_size, text_refiner,
+                    evt: gr.SelectData):
+    click_index = evt.index
+
+    if point_prompt == 'Positive':
+        coordinate = "[[{}, {}, 1]]".format(str(click_index[0]), str(click_index[1]))
+    else:
+        coordinate = "[[{}, {}, 0]]".format(str(click_index[0]), str(click_index[1]))
+
+    prompt = get_click_prompt(coordinate, click_state, click_mode)
+    input_points = prompt['input_point']
+    input_labels = prompt['input_label']
+
+    controls = {'length': length,
+                'sentiment': sentiment,
+                'factuality': factuality,
+                'language': language}
+
+    model = build_caption_anything_with_models(
+        args,
+        api_key="",
+        captioner=shared_captioner,
+        sam_model=shared_sam_model,
+        text_refiner=text_refiner,
+        session_id=iface.app_id
+    )
+
+    model.setup(image_embedding, original_size, input_size, is_image_set=True)
+
+    enable_wiki = True if enable_wiki in ['True', 'TRUE', 'true', True, 'Yes', 'YES', 'yes'] else False
+    out = model.inference(image_input, prompt, controls, disable_gpt=True, enable_wiki=enable_wiki)
+
+    state = state + [("Image point: {}, Input label: {}".format(prompt["input_point"], prompt["input_label"]), None)]
+    state = state + [(None, "raw_caption: {}".format(out['generated_captions']['raw_caption']))]
+    wiki = out['generated_captions'].get('wiki', "")
+    update_click_state(click_state, out['generated_captions']['raw_caption'], click_mode)
+    text = out['generated_captions']['raw_caption']
+    input_mask = np.array(out['mask'].convert('P'))
+    image_input = mask_painter(np.array(image_input), input_mask)
+    origin_image_input = image_input
+    image_input = create_bubble_frame(image_input, text, (click_index[0], click_index[1]), input_mask,
+                                      input_points=input_points, input_labels=input_labels)
+    yield state, state, click_state, image_input, wiki
+    if not args.disable_gpt and model.text_refiner:
+        refined_caption = model.text_refiner.inference(query=text, controls=controls, context=out['context_captions'],
+                                                       enable_wiki=enable_wiki)
+        # new_cap = 'Original: ' + text + '. Refined: ' + refined_caption['caption']
+        new_cap = refined_caption['caption']
+        wiki = refined_caption['wiki']
+        state = state + [(None, f"caption: {new_cap}")]
+        refined_image_input = create_bubble_frame(origin_image_input, new_cap, (click_index[0], click_index[1]),
+                                                  input_mask,
+                                                  input_points=input_points, input_labels=input_labels)
+        yield state, state, click_state, refined_image_input, wiki
+
+
+# def updated_components(click_index, click_mode, click_state, controls, enable_wiki, image_input, input_labels,
+#                        input_points, model, out, prompt, state):
+#     state = state + [("Image point: {}, Input label: {}".format(prompt["input_point"], prompt["input_label"]), None)]
+#     state = state + [(None, "raw_caption: {}".format(out['generated_captions']['raw_caption']))]
+#     wiki = out['generated_captions'].get('wiki', "")
+#     update_click_state(click_state, out['generated_captions']['raw_caption'], click_mode)
+#     text = out['generated_captions']['raw_caption']
+#     input_mask = np.array(out['mask'].convert('P'))
+#     image_input = mask_painter(np.array(image_input), input_mask)
+#     origin_image_input = image_input
+#     image_input = create_bubble_frame(image_input, text, (click_index[0], click_index[1]), input_mask,
+#                                       input_points=input_points, input_labels=input_labels)
+#     yield state, state, click_state, image_input, wiki
+#     if not args.disable_gpt and model.text_refiner:
+#         refined_caption = model.text_refiner.inference(query=text, controls=controls, context=out['context_captions'],
+#                                                        enable_wiki=enable_wiki)
+#         # new_cap = 'Original: ' + text + '. Refined: ' + refined_caption['caption']
+#         new_cap = refined_caption['caption']
+#         wiki = refined_caption['wiki']
+#         state = state + [(None, f"caption: {new_cap}")]
+#         refined_image_input = create_bubble_frame(origin_image_input, new_cap, (click_index[0], click_index[1]),
+#                                                   input_mask,
+#                                                   input_points=input_points, input_labels=input_labels)
+#         yield state, state, click_state, refined_image_input, wiki
+
+
+def get_sketch_prompt(mask: PIL.Image.Image):
+    """
+    Get the prompt for the sketcher.
+    TODO: This is a temporary solution. We should cluster the sketch and get the bounding box of each cluster.
+    """
+
+    mask = np.asarray(mask)[..., 0]
+
+    # Get the bounding box of the sketch
+    y, x = np.where(mask != 0)
+    x1, y1 = np.min(x), np.min(y)
+    x2, y2 = np.max(x), np.max(y)
+
+    prompt = {
+        'prompt_type': ['box'],
+        'input_boxes': [
+            [x1, y1, x2, y2]
+        ]
+    }
+
+    return prompt
+
+
+def add_bbox(image: Image.Image, box: List[int]):
+    """
+    Add a bounding box to the image.
+    """
+    draw = ImageDraw.Draw(image)
+    draw.rectangle(box, outline="red")
+
+    return image
+
+
+def inference_traject(sketcher_image, enable_wiki, language, sentiment, factuality, length, image_embedding, state,
+                      original_size, input_size, text_refiner):
+    image_input, mask = sketcher_image['image'], sketcher_image['mask']
+
+    prompt = get_sketch_prompt(mask)
+    boxes = prompt['input_boxes']
+
+    controls = {'length': length,
+                'sentiment': sentiment,
+                'factuality': factuality,
+                'language': language}
+
+    model = build_caption_anything_with_models(
+        args,
+        api_key="",
+        captioner=shared_captioner,
+        sam_model=shared_sam_model,
+        text_refiner=text_refiner,
+        session_id=iface.app_id
+    )
+
+    model.setup(image_embedding, original_size, input_size, is_image_set=True)
+
+    enable_wiki = True if enable_wiki in ['True', 'TRUE', 'true', True, 'Yes', 'YES', 'yes'] else False
+    out = model.inference(image_input, prompt, controls, disable_gpt=True, enable_wiki=enable_wiki)
+
+    # Update components and states
+    state.append((f'Box: {boxes}', None))
+    state.append((None, f'raw_caption: {out["generated_captions"]["raw_caption"]}'))
+    wiki = out['generated_captions'].get('wiki', "")
+    text = out['generated_captions']['raw_caption']
+    input_mask = np.array(out['mask'].convert('P'))
+    image_input = mask_painter(np.array(image_input), input_mask)
+
+    origin_image_input = image_input
+
+    fake_click_index = (int((boxes[0][0] + boxes[0][2]) / 2), int((boxes[0][1] + boxes[0][3]) / 2))
+    image_input = create_bubble_frame(image_input, text, fake_click_index, input_mask)
+
+    yield state, state, image_input, wiki
+
+    if not args.disable_gpt and model.text_refiner:
+        refined_caption = model.text_refiner.inference(query=text, controls=controls, context=out['context_captions'],
+                                                       enable_wiki=enable_wiki)
+
+        new_cap = refined_caption['caption']
+        wiki = refined_caption['wiki']
+        state = state + [(None, f"caption: {new_cap}")]
+        refined_image_input = create_bubble_frame(origin_image_input, new_cap, fake_click_index, input_mask)
+
+        yield state, state, refined_image_input, wiki
 
 
 def create_ui():
@@ -256,10 +483,12 @@ def create_ui():
         ["test_img/img1.jpg"],
     ]
 
+    # image_upload [data-testid="image"], #image_upload [data-testid="image"] > div{min-height: 600px}
+
     with gr.Blocks(
             css='''
-        #image_upload{min-height:400px}
-        #image_upload [data-testid="image"], #image_upload [data-testid="image"] > div{min-height: 600px}
+        #image_sketcher{min-height:500px}
+        #image_upload{min-height:500px}
         '''
     ) as iface:
         state = gr.State([])
@@ -278,23 +507,30 @@ def create_ui():
         with gr.Row():
             with gr.Column(scale=1.0):
                 with gr.Column(visible=False) as modules_not_need_gpt:
-                    image_input = gr.Image(type="pil", interactive=True, elem_id="image_upload")
-                    example_image = gr.Image(type="pil", interactive=False, visible=False)
-                    with gr.Row(scale=1.0):
-                        with gr.Row(scale=0.4):
-                            point_prompt = gr.Radio(
-                                choices=["Positive", "Negative"],
-                                value="Positive",
-                                label="Point Prompt",
-                                interactive=True)
-                            click_mode = gr.Radio(
-                                choices=["Continuous", "Single"],
-                                value="Continuous",
-                                label="Clicking Mode",
-                                interactive=True)
-                        with gr.Row(scale=0.4):
-                            clear_button_clike = gr.Button(value="Clear Clicks", interactive=True)
-                            clear_button_image = gr.Button(value="Clear Image", interactive=True)
+                    with gr.Tab("Click"):
+                        image_input = gr.Image(type="pil", interactive=True, elem_id="image_upload")
+                        example_image = gr.Image(type="pil", interactive=False, visible=False)
+                        with gr.Row(scale=1.0):
+                            with gr.Row(scale=0.4):
+                                point_prompt = gr.Radio(
+                                    choices=["Positive", "Negative"],
+                                    value="Positive",
+                                    label="Point Prompt",
+                                    interactive=True)
+                                click_mode = gr.Radio(
+                                    choices=["Continuous", "Single"],
+                                    value="Continuous",
+                                    label="Clicking Mode",
+                                    interactive=True)
+                            with gr.Row(scale=0.4):
+                                clear_button_click = gr.Button(value="Clear Clicks", interactive=True)
+                                clear_button_image = gr.Button(value="Clear Image", interactive=True)
+                    with gr.Tab("Trajectory"):
+                        sketcher_input = gr.Image(type="pil", tool='sketch', interactive=True, brush_radius=20,
+                                                  elem_id="image_sketcher")
+                        with gr.Row():
+                            submit_button_sketcher = gr.Button(value="Submit", interactive=True)
+
                 with gr.Column(visible=False) as modules_need_gpt:
                     with gr.Row(scale=1.0):
                         language = gr.Dropdown(
@@ -365,7 +601,7 @@ def create_ui():
                                               modules_not_need_gpt,
                                               modules_not_need_gpt2, modules_not_need_gpt3, text_refiner])
 
-        clear_button_clike.click(
+        clear_button_click.click(
             lambda x: ([[], [], []], x, ""),
             [origin_image],
             [click_state, image_input, wiki_output],
@@ -395,35 +631,38 @@ def create_ui():
         )
 
         image_input.upload(upload_callback, [image_input, state],
-                           [chatbot, state, chat_state, origin_image, click_state, image_input, image_embedding,
-                            original_size, input_size, img_caption])
+                           [chatbot, state, chat_state, origin_image, click_state, image_input, sketcher_input,
+                            image_embedding, original_size, input_size, img_caption])
+        sketcher_input.upload(upload_callback, [sketcher_input, state],
+                              [chatbot, state, chat_state, origin_image, click_state, image_input, sketcher_input,
+                               image_embedding, original_size, input_size, img_caption])
         chat_input.submit(chat_with_points, [chat_input, click_state, chat_state, state, text_refiner, img_caption],
                           [chatbot, state, chat_state])
         chat_input.submit(lambda: "", None, chat_input)
         example_image.change(upload_callback, [example_image, state],
-                             [chatbot, state, chat_state, origin_image, click_state, image_input, image_embedding,
-                              original_size, input_size, img_caption])
+                             [chatbot, state, chat_state, origin_image, click_state, image_input, sketcher_input,
+                              image_embedding, original_size, input_size, img_caption])
 
         # select coordinate
-        image_input.select(inference_seg_cap,
-                           inputs=[
-                               origin_image,
-                               point_prompt,
-                               click_mode,
-                               enable_wiki,
-                               language,
-                               sentiment,
-                               factuality,
-                               length,
-                               image_embedding,
-                               state,
-                               click_state,
-                               original_size,
-                               input_size,
-                               text_refiner
-                           ],
-                           outputs=[chatbot, state, click_state, image_input, wiki_output],
-                           show_progress=False, queue=True)
+        image_input.select(
+            inference_click,
+            inputs=[
+                origin_image, point_prompt, click_mode, enable_wiki, language, sentiment, factuality, length,
+                image_embedding, state, click_state, original_size, input_size, text_refiner
+            ],
+            outputs=[chatbot, state, click_state, image_input, wiki_output],
+            show_progress=False, queue=True
+        )
+
+        submit_button_sketcher.click(
+            inference_traject,
+            inputs=[
+                sketcher_input, enable_wiki, language, sentiment, factuality, length, image_embedding, state,
+                original_size, input_size, text_refiner
+            ],
+            outputs=[chatbot, state, sketcher_input, wiki_output],
+            show_progress=False, queue=True
+        )
 
         return iface
 
