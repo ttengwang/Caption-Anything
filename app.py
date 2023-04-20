@@ -5,6 +5,7 @@ from typing import List
 import PIL
 import gradio as gr
 import numpy as np
+from gradio import processing_utils
 
 from packaging import version
 from PIL import Image, ImageDraw
@@ -51,6 +52,31 @@ seg_model_name = prepare_segmenter(args)
 
 shared_captioner = build_captioner(args.captioner, args.device, args)
 shared_sam_model = sam_model_registry[seg_model_name](checkpoint=args.segmenter_checkpoint).to(args.device)
+
+
+class ImageSketcher(gr.Image):
+    """
+    Fix the bug of gradio.Image that cannot upload with tool == 'sketch'.
+    """
+
+    is_template = True
+
+    def __init__(self, **kwargs):
+        super().__init__(tool="sketch", **kwargs)
+
+    def preprocess(self, x):
+        if self.tool == 'sketch' and self.source in ["upload", "webcam"]:
+            assert isinstance(x, dict)
+            if x['mask'] is None:
+                decode_image = processing_utils.decode_base64_to_image(x['image'])
+                width, height = decode_image.size
+                mask = np.zeros((height, width, 4), dtype=np.uint8)
+                mask[..., -1] = 255
+                mask = self.postprocess(mask)
+
+                x['mask'] = mask
+
+        return super().preprocess(x)
 
 
 def build_caption_anything_with_models(args, api_key="", captioner=None, sam_model=None, text_refiner=None,
@@ -155,6 +181,9 @@ def chat_with_points(chat_input, click_state, chat_state, state, text_refiner, i
 
 
 def upload_callback(image_input, state):
+    if isinstance(image_input, dict):  # if upload from sketcher_input, input contains image and mask
+        image_input, mask = image_input['image'], image_input['mask']
+
     chat_state = []
     click_state = [[], [], []]
     res = 1024
@@ -176,8 +205,9 @@ def upload_callback(image_input, state):
     original_size = model.original_size
     input_size = model.input_size
     img_caption, _ = model.captioner.inference_seg(image_input)
-    return state, state, chat_state, image_input, click_state, image_input, image_input, image_embedding, original_size, \
-        input_size, img_caption
+
+    return state, state, chat_state, image_input, click_state, image_input, image_input, image_embedding, \
+        original_size, input_size, img_caption
 
 
 def inference_click(image_input, point_prompt, click_mode, enable_wiki, language, sentiment, factuality,
@@ -396,8 +426,8 @@ def create_ui():
                                 clear_button_click = gr.Button(value="Clear Clicks", interactive=True)
                                 clear_button_image = gr.Button(value="Clear Image", interactive=True)
                     with gr.Tab("Trajectory"):
-                        sketcher_input = gr.Image(type="pil", tool='sketch', interactive=True, brush_radius=20,
-                                                  elem_id="image_sketcher")
+                        sketcher_input = ImageSketcher(type="pil", interactive=True, brush_radius=20,
+                                                       elem_id="image_sketcher")
                         with gr.Row():
                             submit_button_sketcher = gr.Button(value="Submit", interactive=True)
 
