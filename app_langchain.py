@@ -12,12 +12,12 @@ from PIL import Image, ImageDraw
 
 from caption_anything import CaptionAnything, parse_augment
 from segment_anything import sam_model_registry
-from tools.image_editing_utils import create_bubble_frame
-from tools.mask_painter import mask_painter, download_checkpoint
+from utils.image_editing_utils import create_bubble_frame
+from utils.tools import mask_painter, download_checkpoint
 from captioner import build_captioner
 from text_refiner import build_text_refiner
 from segmenter import build_segmenter
-from tools.chatbot import ConversationBot, build_chatbot_tools, get_new_image_name
+from utils.chatbot import ConversationBot, build_chatbot_tools, get_new_image_name
 
 def prepare_segmenter(args):
     """
