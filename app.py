@@ -59,7 +59,7 @@ class ImageSketcher(gr.Image):
     Fix the bug of gradio.Image that cannot upload with tool == 'sketch'.
     """
 
-    is_template = True
+    is_template = True  # Magic to make this work with gradio.Block, don't remove unless you know what you're doing.
 
     def __init__(self, **kwargs):
         super().__init__(tool="sketch", **kwargs)
@@ -288,16 +288,6 @@ def get_sketch_prompt(mask: PIL.Image.Image):
     }
 
     return prompt
-
-
-def add_bbox(image: Image.Image, box: List[int]):
-    """
-    Add a bounding box to the image.
-    """
-    draw = ImageDraw.Draw(image)
-    draw.rectangle(box, outline="red")
-
-    return image
 
 
 def inference_traject(sketcher_image, enable_wiki, language, sentiment, factuality, length, image_embedding, state,
