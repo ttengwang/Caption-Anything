@@ -6,7 +6,8 @@ import PIL
 import gradio as gr
 import numpy as np
 
-from PIL import ImageChops, Image, ImageDraw
+from packaging import version
+from PIL import Image, ImageDraw
 
 from caption_anything import CaptionAnything, parse_augment
 from segment_anything import sam_model_registry
@@ -322,6 +323,26 @@ def inference_traject(sketcher_image, enable_wiki, language, sentiment, factuali
         yield state, state, refined_image_input, wiki
 
 
+def get_style():
+    current_version = version.parse(gr.__version__)
+    if current_version <= version.parse('3.24.1'):
+        style = '''
+        #image_sketcher{min-height:500px}
+        #image_sketcher [data-testid="image"], #image_sketcher [data-testid="image"] > div{min-height: 500px}
+        #image_upload{min-height:500px}
+        #image_upload [data-testid="image"], #image_upload [data-testid="image"] > div{min-height: 500px}
+        '''
+    elif current_version <= version.parse('3.27'):
+        style = '''
+        #image_sketcher{min-height:500px}
+        #image_upload{min-height:500px}
+        '''
+    else:
+        style = None
+
+    return style
+
+
 def create_ui():
     title = """<p><h1 align="center">Caption-Anything</h1></p>
     """
@@ -337,13 +358,8 @@ def create_ui():
         ["test_img/img1.jpg"],
     ]
 
-    # image_upload [data-testid="image"], #image_upload [data-testid="image"] > div{min-height: 600px}
-
     with gr.Blocks(
-            css='''
-        #image_sketcher{min-height:500px}
-        #image_upload{min-height:500px}
-        '''
+            css=get_style()
     ) as iface:
         state = gr.State([])
         click_state = gr.State([[], [], []])
