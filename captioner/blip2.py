@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 from typing import Union
 
-from tools import is_platform_win
+from utils.tools import is_platform_win
 from .base_captioner import BaseCaptioner
 
 class BLIP2Captioner(BaseCaptioner):

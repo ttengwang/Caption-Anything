@@ -1,11 +1,8 @@
 import os
-
 import cv2
 import requests
-import torch
 import numpy as np
 from PIL import Image
-import copy
 import time
 import sys
 

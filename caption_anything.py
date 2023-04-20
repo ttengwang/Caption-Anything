@@ -1,6 +1,3 @@
-from captioner import build_captioner, BaseCaptioner
-from segmenter import build_segmenter
-from text_refiner import build_text_refiner
 import os
 import argparse
 import pdb
@@ -8,7 +5,9 @@ import time
 from PIL import Image
 import cv2
 import numpy as np
-
+from captioner import build_captioner, BaseCaptioner
+from segmenter import build_segmenter
+from text_refiner import build_text_refiner
 
 class CaptionAnything:
     def __init__(self, args, api_key="", captioner=None, segmenter=None, text_refiner=None):
@@ -130,6 +129,7 @@ def parse_augment():
     parser.add_argument('--enable_reduce_tokens', action="store_true", default=False)
     parser.add_argument('--disable_reuse_features', action="store_true", default=False)
     parser.add_argument('--enable_morphologyex', action="store_true", default=False)
+    parser.add_argument('--chat_tools_dict', type=str, default='VisualQuestionAnswering_cuda:0', help='Visual ChatGPT tools, only useful when running gradio applications')
     args = parser.parse_args()
 
     if args.debug:

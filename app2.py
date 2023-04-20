@@ -12,12 +12,12 @@ from PIL import Image, ImageDraw
 
 from caption_anything import CaptionAnything, parse_augment
 from segment_anything import sam_model_registry
-from utils.image_editing_utils import create_bubble_frame
-from utils.tools import mask_painter, download_checkpoint
+from tools.image_editing_utils import create_bubble_frame
+from tools.mask_painter import mask_painter, download_checkpoint
 from captioner import build_captioner
 from text_refiner import build_text_refiner
 from segmenter import build_segmenter
-
+from tools.chatbot import ConversationBot, build_chatbot_tools, get_new_image_name
 
 def prepare_segmenter(args):
     """
@@ -52,6 +52,8 @@ seg_model_name = prepare_segmenter(args)
 
 shared_captioner = build_captioner(args.captioner, args.device, args)
 shared_sam_model = sam_model_registry[seg_model_name](checkpoint=args.segmenter_checkpoint).to(args.device)
+tools_dict = {e.split('_')[0].strip(): e.split('_')[1].strip() for e in args.chat_tools_dict.split(',')}
+shared_chatbot_tools = build_chatbot_tools(tools_dict)
 
 
 class ImageSketcher(gr.Image):
@@ -90,16 +92,19 @@ def build_caption_anything_with_models(args, api_key="", captioner=None, sam_mod
 
 def init_openai_api_key(api_key=""):
     text_refiner = None
+    visual_chatgpt = None
     if api_key and len(api_key) > 30:
         try:
             text_refiner = build_text_refiner(args.text_refiner, args.device, args, api_key)
             text_refiner.llm('hi')  # test
+            visual_chatgpt = ConversationBot(shared_chatbot_tools, api_key)
         except:
             text_refiner = None
+            visual_chatgpt = None
     openai_available = text_refiner is not None
     return gr.update(visible=openai_available), gr.update(visible=openai_available), gr.update(
         visible=openai_available), gr.update(visible=True), gr.update(visible=True), gr.update(
-        visible=True), text_refiner
+        visible=True), text_refiner, visual_chatgpt
 
 
 def get_click_prompt(chat_input, click_state, click_mode):
@@ -138,53 +143,20 @@ def update_click_state(click_state, caption, click_mode):
     else:
         raise NotImplementedError
 
-
-def chat_with_points(chat_input, click_state, chat_state, state, text_refiner, img_caption):
-    if text_refiner is None:
+def chat_input_callback(*args):
+    visual_chatgpt, chat_input, click_state, state, aux_state = args
+    if visual_chatgpt is not None:
+        return visual_chatgpt.run_text(chat_input, state, aux_state)
+    else:
         response = "Text refiner is not initilzed, please input openai api key."
         state = state + [(chat_input, response)]
-        return state, state, chat_state
+        return state, state
 
-    points, labels, captions = click_state
-    # point_chat_prompt = "I want you act as a chat bot in terms of image. I will give you some points (w, h) in the image and tell you what happed on the point in natural language. Note that (0, 0) refers to the top-left corner of the image, w refers to the width and h refers the height. You should chat with me based on the fact in the image instead of imagination. Now I tell you the points with their visual description:\n{points_with_caps}\nNow begin chatting!"
-    suffix = '\nHuman: {chat_input}\nAI: '
-    qa_template = '\nHuman: {q}\nAI: {a}'
-    # # "The image is of width {width} and height {height}." 
-    point_chat_prompt = "I am an AI trained to chat with you about an image. I am greate at what is going on in any image based on the image information your provide. The overall image description is \"{img_caption}\". You will also provide me objects in the image in details, i.e., their location and visual descriptions. Here are the locations and descriptions of events that happen in the image: {points_with_caps} \nYou are required to use language instead of number to describe these positions. Now, let's chat!"
-    prev_visual_context = ""
-    pos_points = []
-    pos_captions = []
+def upload_callback(image_input, state, visual_chatgpt=None):
 
-    for i in range(len(points)):
-        if labels[i] == 1:
-            pos_points.append(f"(X:{points[i][0]}, Y:{points[i][1]})")
-            pos_captions.append(captions[i])
-    prev_visual_context = prev_visual_context + '\n' + 'There is an event described as  \"{}\" locating at {}'.format(
-        pos_captions[-1], ', '.join(pos_points))
-
-    context_length_thres = 500
-    prev_history = ""
-    for i in range(len(chat_state)):
-        q, a = chat_state[i]
-        if len(prev_history) < context_length_thres:
-            prev_history = prev_history + qa_template.format(**{"q": q, "a": a})
-        else:
-            break
-    chat_prompt = point_chat_prompt.format(
-        **{"img_caption": img_caption, "points_with_caps": prev_visual_context}) + prev_history + suffix.format(
-        **{"chat_input": chat_input})
-    print('\nchat_prompt: ', chat_prompt)
-    response = text_refiner.llm(chat_prompt)
-    state = state + [(chat_input, response)]
-    chat_state = chat_state + [(chat_input, response)]
-    return state, state, chat_state
-
-
-def upload_callback(image_input, state):
     if isinstance(image_input, dict):  # if upload from sketcher_input, input contains image and mask
         image_input, mask = image_input['image'], image_input['mask']
 
-    chat_state = []
     click_state = [[], [], []]
     res = 1024
     width, height = image_input.size
@@ -192,7 +164,7 @@ def upload_callback(image_input, state):
     if ratio < 1.0:
         image_input = image_input.resize((int(width * ratio), int(height * ratio)))
         print('Scaling input image to {}'.format(image_input.size))
-    state = [] + [(None, 'Image size: ' + str(image_input.size))]
+        
     model = build_caption_anything_with_models(
         args,
         api_key="",
@@ -204,14 +176,22 @@ def upload_callback(image_input, state):
     image_embedding = model.image_embedding
     original_size = model.original_size
     input_size = model.input_size
-    img_caption, _ = model.captioner.inference_seg(image_input)
+    
+    if visual_chatgpt is not None:
+        new_image_path = get_new_image_name('chat_image', func_name='upload')
+        image_input.save(new_image_path)
+        img_caption, _ = model.captioner.inference_seg(image_input)
+        Human_prompt = f'\nHuman: provide a new figure with path {new_image_path}. The description is: {img_caption}. This information helps you to understand this image, but you should use tools to finish following tasks, rather than directly imagine from my description. If you understand, say \"Received\". \n'
+        AI_prompt = "Received."
+        visual_chatgpt.agent.memory.buffer = visual_chatgpt.agent.memory.buffer + Human_prompt + 'AI: ' + AI_prompt
+    state = [(None, 'Received new image, resize it to width {} and height {}: '.format(image_input.size[0], image_input.size[1]))]
 
-    return state, state, chat_state, image_input, click_state, image_input, image_input, image_embedding, \
-        original_size, input_size, img_caption
+    return state, state, image_input, click_state, image_input, image_input, image_embedding, \
+        original_size, input_size
 
 
 def inference_click(image_input, point_prompt, click_mode, enable_wiki, language, sentiment, factuality,
-                    length, image_embedding, state, click_state, original_size, input_size, text_refiner,
+                    length, image_embedding, state, click_state, original_size, input_size, text_refiner, visual_chatgpt,
                     evt: gr.SelectData):
     click_index = evt.index
 
@@ -253,6 +233,13 @@ def inference_click(image_input, point_prompt, click_mode, enable_wiki, language
     origin_image_input = image_input
     image_input = create_bubble_frame(image_input, text, (click_index[0], click_index[1]), input_mask,
                                       input_points=input_points, input_labels=input_labels)
+    x, y = input_points[-1]
+    Human_prompt = f'\nHuman: click on the coordinates (X:{x}, Y:{y}), at this position there is \"{text}\". The cropped subfigure on this position is saved at path {out["crop_save_path"]} You can chat more on these objects. If you understand, say \"Received\". \n'
+    AI_prompt = f"Received."
+    
+    if visual_chatgpt is not None:
+        visual_chatgpt.agent.memory.buffer = visual_chatgpt.agent.memory.buffer + Human_prompt + 'AI: ' + AI_prompt
+    
     yield state, state, click_state, image_input, wiki
     if not args.disable_gpt and model.text_refiner:
         refined_caption = model.text_refiner.inference(query=text, controls=controls, context=out['context_captions'],
@@ -383,13 +370,15 @@ def create_ui():
     ) as iface:
         state = gr.State([])
         click_state = gr.State([[], [], []])
-        chat_state = gr.State([])
+        # chat_state = gr.State([])
         origin_image = gr.State(None)
         image_embedding = gr.State(None)
         text_refiner = gr.State(None)
+        visual_chatgpt = gr.State(None)
         original_size = gr.State(None)
         input_size = gr.State(None)
-        img_caption = gr.State(None)
+        # img_caption = gr.State(None)
+        aux_state = gr.State([])
 
         gr.Markdown(title)
         gr.Markdown(description)
@@ -481,15 +470,15 @@ def create_ui():
 
         openai_api_key.submit(init_openai_api_key, inputs=[openai_api_key],
                               outputs=[modules_need_gpt, modules_need_gpt2, modules_need_gpt3, modules_not_need_gpt,
-                                       modules_not_need_gpt2, modules_not_need_gpt3, text_refiner])
+                                       modules_not_need_gpt2, modules_not_need_gpt3, text_refiner, visual_chatgpt])
         enable_chatGPT_button.click(init_openai_api_key, inputs=[openai_api_key],
                                     outputs=[modules_need_gpt, modules_need_gpt2, modules_need_gpt3,
                                              modules_not_need_gpt,
-                                             modules_not_need_gpt2, modules_not_need_gpt3, text_refiner])
+                                             modules_not_need_gpt2, modules_not_need_gpt3, text_refiner, visual_chatgpt])
         disable_chatGPT_button.click(init_openai_api_key,
                                      outputs=[modules_need_gpt, modules_need_gpt2, modules_need_gpt3,
                                               modules_not_need_gpt,
-                                              modules_not_need_gpt2, modules_not_need_gpt3, text_refiner])
+                                              modules_not_need_gpt2, modules_not_need_gpt3, text_refiner, visual_chatgpt])
 
         clear_button_click.click(
             lambda x: ([[], [], []], x, ""),
@@ -499,46 +488,51 @@ def create_ui():
             show_progress=False
         )
         clear_button_image.click(
-            lambda: (None, [], [], [], [[], [], []], "", "", ""),
+            lambda: (None, [], [], [[], [], []], "", "", ""),
             [],
-            [image_input, chatbot, state, chat_state, click_state, wiki_output, origin_image, img_caption],
+            [image_input, chatbot, state, click_state, wiki_output, origin_image],
             queue=False,
             show_progress=False
         )
+        clear_button_image.click(lambda visual_chatgpt: visual_chatgpt.memory.clear, inputs=[visual_chatgpt])
         clear_button_text.click(
-            lambda: ([], [], [[], [], [], []], []),
+            lambda: ([], [], [[], [], [], []]),
             [],
-            [chatbot, state, click_state, chat_state],
+            [chatbot, state, click_state],
             queue=False,
             show_progress=False
         )
+        clear_button_text.click(lambda visual_chatgpt: visual_chatgpt.memory.clear, inputs=[visual_chatgpt])
+        
         image_input.clear(
-            lambda: (None, [], [], [], [[], [], []], "", "", ""),
+            lambda: (None, [], [], [[], [], []], "", "", ""),
             [],
-            [image_input, chatbot, state, chat_state, click_state, wiki_output, origin_image, img_caption],
+            [image_input, chatbot, state, click_state, wiki_output, origin_image],
             queue=False,
             show_progress=False
         )
+        image_input.clear(lambda visual_chatgpt: visual_chatgpt.memory.clear, inputs=[visual_chatgpt])
+        
 
-        image_input.upload(upload_callback, [image_input, state],
-                           [chatbot, state, chat_state, origin_image, click_state, image_input, sketcher_input,
-                            image_embedding, original_size, input_size, img_caption])
-        sketcher_input.upload(upload_callback, [sketcher_input, state],
-                              [chatbot, state, chat_state, origin_image, click_state, image_input, sketcher_input,
-                               image_embedding, original_size, input_size, img_caption])
-        chat_input.submit(chat_with_points, [chat_input, click_state, chat_state, state, text_refiner, img_caption],
-                          [chatbot, state, chat_state])
+        image_input.upload(upload_callback, [image_input, state, visual_chatgpt],
+                           [chatbot, state, origin_image, click_state, image_input, sketcher_input,
+                            image_embedding, original_size, input_size])
+        sketcher_input.upload(upload_callback, [sketcher_input, state, visual_chatgpt],
+                              [chatbot, state, origin_image, click_state, image_input, sketcher_input,
+                               image_embedding, original_size, input_size])
+        chat_input.submit(chat_input_callback, [visual_chatgpt, chat_input, click_state, state, aux_state],
+                          [chatbot, state, aux_state])
         chat_input.submit(lambda: "", None, chat_input)
-        example_image.change(upload_callback, [example_image, state],
-                             [chatbot, state, chat_state, origin_image, click_state, image_input, sketcher_input,
-                              image_embedding, original_size, input_size, img_caption])
-
+        example_image.change(upload_callback, [example_image, state, visual_chatgpt],
+                             [chatbot, state, origin_image, click_state, image_input, sketcher_input,
+                              image_embedding, original_size, input_size])
+        example_image.change(lambda visual_chatgpt: visual_chatgpt.memory.clear, inputs=[visual_chatgpt])
         # select coordinate
         image_input.select(
             inference_click,
             inputs=[
                 origin_image, point_prompt, click_mode, enable_wiki, language, sentiment, factuality, length,
-                image_embedding, state, click_state, original_size, input_size, text_refiner
+                image_embedding, state, click_state, original_size, input_size, text_refiner, visual_chatgpt
             ],
             outputs=[chatbot, state, click_state, image_input, wiki_output],
             show_progress=False, queue=True
