@@ -234,8 +234,8 @@ def inference_click(image_input, point_prompt, click_mode, enable_wiki, language
     image_input = create_bubble_frame(image_input, text, (click_index[0], click_index[1]), input_mask,
                                       input_points=input_points, input_labels=input_labels)
     x, y = input_points[-1]
-    Human_prompt = f'\nHuman: click on the coordinates (X:{x}, Y:{y}), at this position there is \"{text}\". The cropped subfigure on this position is saved at path {out["crop_save_path"]} You can chat more on these objects. If you understand, say \"Received\". \n'
-    AI_prompt = f"Received."
+    Human_prompt = f'\nHuman: remember the selected region at (X:{x}, Y:{y}), which could be describe as \"{text}\". The file path of the cropped region is {out["crop_save_path"]}. You should primarly chat about it with human. If human chat about other objects not in the selected region, you should use tools to understand the original whole image, instead of the selected region. If you understand, say \"Received\". \n'
+    AI_prompt = f"Received." 
     
     if visual_chatgpt is not None:
         visual_chatgpt.agent.memory.buffer = visual_chatgpt.agent.memory.buffer + Human_prompt + 'AI: ' + AI_prompt
@@ -329,7 +329,10 @@ def inference_traject(sketcher_image, enable_wiki, language, sentiment, factuali
 
         yield state, state, refined_image_input, wiki
 
-
+def clear_chat_memory(visual_chatgpt):
+    if visual_chatgpt is not None:
+        visual_chatgpt.memory.clear()
+    
 def get_style():
     current_version = version.parse(gr.__version__)
     if current_version <= version.parse('3.24.1'):
@@ -494,7 +497,7 @@ def create_ui():
             queue=False,
             show_progress=False
         )
-        clear_button_image.click(lambda visual_chatgpt: visual_chatgpt.memory.clear, inputs=[visual_chatgpt])
+        clear_button_image.click(clear_chat_memory, inputs=[visual_chatgpt])
         clear_button_text.click(
             lambda: ([], [], [[], [], [], []]),
             [],
@@ -502,7 +505,7 @@ def create_ui():
             queue=False,
             show_progress=False
         )
-        clear_button_text.click(lambda visual_chatgpt: visual_chatgpt.memory.clear, inputs=[visual_chatgpt])
+        clear_button_text.click(clear_chat_memory, inputs=[visual_chatgpt])
         
         image_input.clear(
             lambda: (None, [], [], [[], [], []], "", "", ""),
@@ -511,7 +514,8 @@ def create_ui():
             queue=False,
             show_progress=False
         )
-        image_input.clear(lambda visual_chatgpt: visual_chatgpt.memory.clear, inputs=[visual_chatgpt])
+
+        image_input.clear(clear_chat_memory, inputs=[visual_chatgpt])
         
 
         image_input.upload(upload_callback, [image_input, state, visual_chatgpt],
@@ -526,7 +530,7 @@ def create_ui():
         example_image.change(upload_callback, [example_image, state, visual_chatgpt],
                              [chatbot, state, origin_image, click_state, image_input, sketcher_input,
                               image_embedding, original_size, input_size])
-        example_image.change(lambda visual_chatgpt: visual_chatgpt.memory.clear, inputs=[visual_chatgpt])
+        example_image.change(clear_chat_memory, inputs=[visual_chatgpt])
         # select coordinate
         image_input.select(
             inference_click,

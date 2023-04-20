@@ -44,15 +44,15 @@ VISUAL_CHATGPT_PREFIX = """
 
 VISUAL_CHATGPT_FORMAT_INSTRUCTIONS = """To use a tool, please use the following format:
 
-Thought: Do I need to use a tool? Yes
+"Thought: Do I need to use a tool? Yes
 Action: the action to take, should be one of [{tool_names}], remember the action must to be one tool
 Action Input: the input to the action
-Observation: the result of the action
+Observation: the result of the action"
 
 When you have a response to say to the Human, or if you do not need to use a tool, you MUST use the format:
 
-Thought: Do I need to use a tool? No
-{ai_prefix}: [your response here]
+"Thought: Do I need to use a tool? No
+{ai_prefix}: [your response here]"
 
 """
 
@@ -64,9 +64,9 @@ Previous conversation history:
 
 New input: {input}
 Since CATchat is a text language model, CATchat must use tools to observe images rather than imagination.
-The thoughts and observations are only visible for CATchat, CATchat should remember to repeat important information in the final response for Human. You are strictly to use the aforementioned "Thought/Action/Action Input/Observation" format to use tools. 
+The thoughts and observations are only visible for CATchat, CATchat should remember to repeat important information in the final response for Human. 
 
-Thought: Do I need to use a tool? {agent_scratchpad}"""
+Thought: Do I need to use a tool? {agent_scratchpad} (You are strictly to use the aforementioned "Thought/Action/Action Input/Observation" format as the answer.)"""
 
 os.makedirs('chat_image', exist_ok=True)
 
@@ -94,7 +94,7 @@ def cut_dialogue_history(history_memory, keep_last_n_words=500):
     return '\n' + '\n'.join(paragraphs)
 
 def get_new_image_name(folder='chat_image', func_name="update"):
-    this_new_uuid = str(uuid.uuid4())
+    this_new_uuid = str(uuid.uuid4())[:8]
     new_file_name = f'{func_name}_{this_new_uuid}.png'
     return os.path.join(folder, new_file_name)
 
