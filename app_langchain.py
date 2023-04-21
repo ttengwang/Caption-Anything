@@ -180,6 +180,7 @@ def upload_callback(image_input, state, visual_chatgpt=None):
     if visual_chatgpt is not None:
         new_image_path = get_new_image_name('chat_image', func_name='upload')
         image_input.save(new_image_path)
+        visual_chatgpt.current_image = new_image_path
         img_caption, _ = model.captioner.inference_seg(image_input)
         Human_prompt = f'\nHuman: provide a new figure with path {new_image_path}. The description is: {img_caption}. This information helps you to understand this image, but you should use tools to finish following tasks, rather than directly imagine from my description. If you understand, say \"Received\". \n'
         AI_prompt = "Received."
@@ -234,12 +235,13 @@ def inference_click(image_input, point_prompt, click_mode, enable_wiki, language
     image_input = create_bubble_frame(image_input, text, (click_index[0], click_index[1]), input_mask,
                                       input_points=input_points, input_labels=input_labels)
     x, y = input_points[-1]
-    Human_prompt = f'\nHuman: remember the selected region at (X:{x}, Y:{y}), which could be describe as \"{text}\". The file path of the cropped region is {out["crop_save_path"]}. You should primarly chat about it with human. If human chat about other objects not in the selected region, you should use tools to understand the original whole image, instead of the selected region. If you understand, say \"Received\". \n'
-    AI_prompt = f"Received." 
     
     if visual_chatgpt is not None:
-        visual_chatgpt.agent.memory.buffer = visual_chatgpt.agent.memory.buffer + Human_prompt + 'AI: ' + AI_prompt
-    
+        new_crop_save_path = get_new_image_name('chat_image', func_name='crop')
+        Image.open(out["crop_save_path"]).save(new_crop_save_path)
+        point_prompt = f'You should primarly use tools on the selected regional image (description: {text}, path: {new_crop_save_path}), which is a part of the whole image (path: {visual_chatgpt.current_image}). If human mentioned some objects not in the selected region, you can use tools on the whole image.'
+        visual_chatgpt.point_prompt = point_prompt
+
     yield state, state, click_state, image_input, wiki
     if not args.disable_gpt and model.text_refiner:
         refined_caption = model.text_refiner.inference(query=text, controls=controls, context=out['context_captions'],
@@ -332,6 +334,8 @@ def inference_traject(sketcher_image, enable_wiki, language, sentiment, factuali
 def clear_chat_memory(visual_chatgpt):
     if visual_chatgpt is not None:
         visual_chatgpt.memory.clear()
+        visual_chatgpt.current_image = None
+        visual_chatgpt.point_prompt = ""
     
 def get_style():
     current_version = version.parse(gr.__version__)
@@ -527,6 +531,9 @@ def create_ui():
         chat_input.submit(chat_input_callback, [visual_chatgpt, chat_input, click_state, state, aux_state],
                           [chatbot, state, aux_state])
         chat_input.submit(lambda: "", None, chat_input)
+        submit_button_text.click(chat_input_callback, [visual_chatgpt, chat_input, click_state, state, aux_state],
+                          [chatbot, state, aux_state])
+        submit_button_text.submit(lambda: "", None, chat_input)
         example_image.change(upload_callback, [example_image, state, visual_chatgpt],
                              [chatbot, state, origin_image, click_state, image_input, sketcher_input,
                               image_embedding, original_size, input_size])

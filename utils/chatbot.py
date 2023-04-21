@@ -63,7 +63,7 @@ Previous conversation history:
 {chat_history}
 
 New input: {input}
-Since CATchat is a text language model, CATchat must use tools to observe images rather than imagination.
+Since CATchat is a text language model, CATchat must use tools iteratively to observe images rather than imagination.
 The thoughts and observations are only visible for CATchat, CATchat should remember to repeat important information in the final response for Human. 
 
 Thought: Do I need to use a tool? {agent_scratchpad} (You are strictly to use the aforementioned "Thought/Action/Action Input/Observation" format as the answer.)"""
@@ -152,6 +152,8 @@ class ConversationBot:
         self.llm = llm
         self.memory = ConversationBufferMemory(memory_key="chat_history", output_key='output')
         self.tools = tools
+        self.current_image = None
+        self.point_prompt = ""
         self.agent = initialize_agent(
             self.tools,
             self.llm,
@@ -177,6 +179,11 @@ class ConversationBot:
     
     def run_text(self, text, state, aux_state):
         self.agent.memory.buffer = cut_dialogue_history(self.agent.memory.buffer, keep_last_n_words=500)
+        if self.point_prompt != "":
+            Human_prompt = f'\nHuman: {self.point_prompt}\n'
+            AI_prompt = 'Ok'
+            self.agent.memory.buffer = self.agent.memory.buffer + Human_prompt + 'AI: ' + AI_prompt
+            self.point_prompt = ""
         res = self.agent({"input": text})
         res['output'] = res['output'].replace("\\", "/")
         response = re.sub('(chat_image/\S*png)', lambda m: f'![](/file={m.group(0)})*{m.group(0)}*', res['output'])
