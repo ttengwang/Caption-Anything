@@ -1,5 +1,5 @@
 <div align="center">
-    <img src="./Image/caption_anything_logo.png" height="160" />
+    <img src="assets/caption_anything_logo.png" height="160" />
 </div>
 <div align="center">
 <!-- <h1 align="center"> Caption Anything </h1> -->
@@ -17,7 +17,7 @@
 * Interactive demo
 
 <div align=center>
-<img src="./Image/qingming.gif" />
+<img src="./assets/qingming.gif" />
 <br>    
 Along the River During the Qingming Festival (清明上河图)
 </div>
@@ -35,15 +35,15 @@ Explore the interactive demo of Caption-Anything, which showcases its powerful c
 
 ---
 
-![](./Image/UI.png)
+![](./assets/UI.png)
 
 ---
 
-![](./Image/demo1.png)
+![](./assets/demo1.png)
 
 ---
 
-![](./Image/demo2.png)
+![](./assets/demo2.png)
 
 ### Getting Started
 
@@ -112,10 +112,19 @@ language_controls = {
 model = CaptionAnything(args, openai_api_key)
 out = model.inference(image_path, visual_controls, language_controls)
 ```
+## Citation
+If you find this work useful for your research, please cite our github repo:
 
+```bibtex
+@misc{wang2023caption,
+    title = {Caption Anything},
+    author = {Teng Wang and Jinrui Zhang and Junjie Fei and Hao Zheng and Zhe Li and Yunlong Tang and Mingqi Gao},
+    howpublished = {\url{https://github.com/ttengwang/Caption-Anything}},
+    year = {2023}
+}
+```
 ## Acknowledgements
-The project is based on [Segment Anything](https://github.com/facebookresearch/segment-anything), BLIP/BLIP-2, [ChatGPT](https://openai.com/blog/chatgpt). Thanks for the authors for their efforts.
-
+The project is based on [Segment Anything](https://github.com/facebookresearch/segment-anything), [BLIP/BLIP-2](https://github.com/salesforce/LAVIS), [ChatGPT](https://openai.com/blog/chatgpt), [Visual ChatGPT](https://github.com/microsoft/TaskMatrix), [GiT](https://github.com/microsoft/GenerativeImage2Text). Thanks for the authors for their efforts.
 ## Contributor
 Our project wouldn't be possible without the contributions of these amazing people! Thank you all for making this project better.
 
