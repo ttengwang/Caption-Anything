@@ -62,9 +62,12 @@ class CaptionAnything:
             print('OpenAI GPT is not available')
 
     def inference(self, image, prompt, controls, disable_gpt=False, enable_wiki=False):
+        # TODO: Add support to multiple seg masks.
+
         #  segment with prompt
         print("CA prompt: ", prompt, "CA controls", controls)
         seg_mask = self.segmenter.inference(image, prompt)[0, ...]
+
         if self.args.enable_morphologyex:
             seg_mask = 255 * seg_mask.astype(np.uint8)
             seg_mask = np.stack([seg_mask, seg_mask, seg_mask], axis=-1)
@@ -80,6 +83,7 @@ class CaptionAnything:
         seg_mask_img.save(mask_save_path)
         print('seg_mask path: ', mask_save_path)
         print("seg_mask.shape: ", seg_mask.shape)
+
         #  captioning with mask
         if self.args.enable_reduce_tokens:
             caption, crop_save_path = self.captioner. \
@@ -92,6 +96,7 @@ class CaptionAnything:
                 inference_seg(image, seg_mask, crop_mode=self.args.seg_crop_mode,
                               filter=self.args.clip_filter,
                               disable_regular_box=self.args.disable_regular_box)
+
         #  refining with TextRefiner
         context_captions = []
         if self.args.context_captions:
@@ -111,6 +116,7 @@ class CaptionAnything:
 
 if __name__ == "__main__":
     from caption_anything.utils.parser import parse_augment
+
     args = parse_augment()
     # image_path = 'test_images/img3.jpg'
     image_path = 'test_images/img1.jpg'

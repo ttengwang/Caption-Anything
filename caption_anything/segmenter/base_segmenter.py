@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw, ImageOps
 import numpy as np
 from typing import Union
 from segment_anything import sam_model_registry, SamPredictor, SamAutomaticMaskGenerator
-from caption_anything.utils.utils import prepare_segmenter, seg_model_map
+from caption_anything.utils.utils import prepare_segmenter, seg_model_map, load_image
 import matplotlib.pyplot as plt
 import PIL
 
@@ -30,21 +30,9 @@ class BaseSegmenter:
         self.image_embedding = None
         self.image = None
 
-    def read_image(self, image: Union[np.ndarray, Image.Image, str]):
-        if type(image) == str:  # input path
-            image = Image.open(image)
-            image = np.array(image)
-        elif type(image) == Image.Image:
-            image = np.array(image)
-        elif type(image) == np.ndarray:
-            image = image
-        else:
-            raise TypeError
-        return image
-
     @torch.no_grad()
     def set_image(self, image: Union[np.ndarray, Image.Image, str]):
-        image = self.read_image(image)
+        image = load_image(image, return_type='numpy')
         self.image = image
         if self.reuse_feature:
             self.predictor.set_image(image)
@@ -57,7 +45,7 @@ class BaseSegmenter:
         SAM inference of image according to control.
         Args:
             image: str or PIL.Image or np.ndarray
-            control:
+            control: dict to control SAM.
                 prompt_type:
                     1. {control['prompt_type'] = ['everything']} to segment everything in the image.
                     2. {control['prompt_type'] = ['click', 'box']} to segment according to click and box.
@@ -77,7 +65,7 @@ class BaseSegmenter:
             masks: np.ndarray of shape [num_masks, height, width]
 
         """
-        image = self.read_image(image)  # Turn image into np.ndarray
+        image = load_image(image, return_type='numpy')
         if 'everything' in control['prompt_type']:
             masks = self.mask_generator.generate(image)
             new_masks = np.concatenate([mask["segmentation"][np.newaxis, :] for mask in masks])

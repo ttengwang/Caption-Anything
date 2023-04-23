@@ -1,6 +1,4 @@
-import os
 import json
-from typing import List
 
 import PIL
 import gradio as gr
@@ -8,7 +6,7 @@ import numpy as np
 from gradio import processing_utils
 
 from packaging import version
-from PIL import Image, ImageDraw
+from PIL import Image
 
 from caption_anything.model import CaptionAnything
 from caption_anything.utils.image_editing_utils import create_bubble_frame
@@ -20,15 +18,13 @@ from caption_anything.segmenter import build_segmenter
 from caption_anything.utils.chatbot import ConversationBot, build_chatbot_tools, get_new_image_name
 from segment_anything import sam_model_registry
 
-
 args = parse_augment()
 
-args = parse_augment()
 if args.segmenter_checkpoint is None:
     _, segmenter_checkpoint = prepare_segmenter(args.segmenter)
 else:
     segmenter_checkpoint = args.segmenter_checkpoint
-    
+
 shared_captioner = build_captioner(args.captioner, args.device, args)
 shared_sam_model = sam_model_registry[seg_model_map[args.segmenter]](checkpoint=segmenter_checkpoint).to(args.device)
 
@@ -249,7 +245,7 @@ def inference_click(image_input, point_prompt, click_mode, enable_wiki, language
 def get_sketch_prompt(mask: PIL.Image.Image, multi_mask=True):
     """
     Get the prompt for the sketcher.
-    TODO: This is a temporary solution. We should cluster the sketch and get the bounding box of each cluster.
+    The mask is clustered into different groups, whose bounding boxes are returned with prompt
     """
 
     mask = np.array(np.asarray(mask)[..., 0])
