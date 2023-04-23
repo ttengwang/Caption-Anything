@@ -20,11 +20,11 @@ class BLIP2Captioner(BaseCaptioner):
             self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b", device_map='sequential', load_in_8bit=True)
 
     @torch.no_grad()
-    def inference(self, image: Union[np.ndarray, Image.Image, str], filter=False):
+    def inference(self, image: Union[np.ndarray, Image.Image, str], filter=False, **kargs):
         image = load_image(image, return_type="pil")
 
         if not self.dialogue:
-            text_prompt = 'The image shows'
+            text_prompt = kargs.get('text_prompt', 'Question: what does the image show? Answer:')
             inputs = self.processor(image, text = text_prompt, return_tensors="pt").to(self.device, self.torch_dtype)
             out = self.model.generate(**inputs, max_new_tokens=50)
             captions = self.processor.decode(out[0], skip_special_tokens=True).strip()

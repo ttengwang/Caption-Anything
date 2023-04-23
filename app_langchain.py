@@ -157,7 +157,7 @@ def upload_callback(image_input, state, visual_chatgpt=None):
         new_image_path = get_new_image_name('chat_image', func_name='upload')
         image_input.save(new_image_path)
         visual_chatgpt.current_image = new_image_path
-        img_caption, _ = model.captioner.inference_seg(image_input)
+        img_caption = model.captioner.inference(image_input, filter=False, text_prompt='')
         Human_prompt = f'\nHuman: provide a new figure with path {new_image_path}. The description is: {img_caption}. This information helps you to understand this image, but you should use tools to finish following tasks, rather than directly imagine from my description. If you understand, say \"Received\". \n'
         AI_prompt = "Received."
         visual_chatgpt.global_prompt = Human_prompt + 'AI: ' + AI_prompt

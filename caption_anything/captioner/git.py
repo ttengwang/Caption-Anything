@@ -19,7 +19,7 @@ class GITCaptioner(BaseCaptioner):
         self.model = GitForCausalLM.from_pretrained("microsoft/git-large", torch_dtype=self.torch_dtype).to(self.device)
 
     @torch.no_grad()
-    def inference(self, image: Union[np.ndarray, Image.Image, str], filter=False):
+    def inference(self, image: Union[np.ndarray, Image.Image, str], filter=False, **kargs):
         image = load_image(image, return_type="pil")
         pixel_values = self.processor(images=image, return_tensors="pt").pixel_values.to(self.device, self.torch_dtype)
         generated_ids = self.model.generate(pixel_values=pixel_values, max_new_tokens=50)

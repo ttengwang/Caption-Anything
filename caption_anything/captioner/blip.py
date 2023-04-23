@@ -20,7 +20,7 @@ class BLIPCaptioner(BaseCaptioner):
                                                                   torch_dtype=self.torch_dtype).to(self.device)
 
     @torch.no_grad()
-    def inference(self, image: Union[np.ndarray, Image.Image, str], filter=False):
+    def inference(self, image: Union[np.ndarray, Image.Image, str], filter=False, **kargs):
         image = load_image(image, return_type="pil")
         inputs = self.processor(image, return_tensors="pt").to(self.device, self.torch_dtype)
         out = self.model.generate(**inputs, max_new_tokens=50)
