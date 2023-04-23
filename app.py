@@ -267,24 +267,70 @@ def inference_click(image_input, point_prompt, click_mode, enable_wiki, language
         yield state, state, click_state, refined_image_input, wiki
 
 
-def get_sketch_prompt(mask: PIL.Image.Image):
+def get_sketch_prompt(mask: PIL.Image.Image, multi_mask=True):
     """
     Get the prompt for the sketcher.
     TODO: This is a temporary solution. We should cluster the sketch and get the bounding box of each cluster.
     """
 
-    mask = np.asarray(mask)[..., 0]
+    mask = np.array(np.asarray(mask)[..., 0])
+    mask[mask > 0] = 1  # Refine the mask, let all nonzero values be 1
 
-    # Get the bounding box of the sketch
-    y, x = np.where(mask != 0)
-    x1, y1 = np.min(x), np.min(y)
-    x2, y2 = np.max(x), np.max(y)
+    if not multi_mask:
+        y, x = np.where(mask == 1)
+        x1, y1 = np.min(x), np.min(y)
+        x2, y2 = np.max(x), np.max(y)
+
+        prompt = {
+            'prompt_type': ['box'],
+            'input_boxes': [
+                [x1, y1, x2, y2]
+            ]
+        }
+
+        return prompt
+
+    traversed = np.zeros_like(mask)
+    groups = np.zeros_like(mask)
+    max_group_id = 1
+
+    # Iterate over all pixels
+    for x in range(mask.shape[0]):
+        for y in range(mask.shape[1]):
+            if traversed[x, y] == 1:
+                continue
+
+            if mask[x, y] == 0:
+                traversed[x, y] = 1
+            else:
+                # If pixel is part of mask
+                groups[x, y] = max_group_id
+                stack = [(x, y)]
+                while stack:
+                    i, j = stack.pop()
+                    if traversed[i, j] == 1:
+                        continue
+                    traversed[i, j] = 1
+                    if mask[i, j] == 1:
+                        groups[i, j] = max_group_id
+                        for di, dj in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]:
+                            ni, nj = i + di, j + dj
+                            traversed[i, j] = 1
+                            if 0 <= nj < mask.shape[1] and mask.shape[0] > ni >= 0 == traversed[ni, nj]:
+                                stack.append((i + di, j + dj))
+                max_group_id += 1
+
+    # get the bounding box of each group
+    boxes = []
+    for group in range(1, max_group_id):
+        y, x = np.where(groups == group)
+        x1, y1 = np.min(x), np.min(y)
+        x2, y2 = np.max(x), np.max(y)
+        boxes.append([x1, y1, x2, y2])
 
     prompt = {
         'prompt_type': ['box'],
-        'input_boxes': [
-            [x1, y1, x2, y2]
-        ]
+        'input_boxes': boxes
     }
 
     return prompt
@@ -294,7 +340,7 @@ def inference_traject(sketcher_image, enable_wiki, language, sentiment, factuali
                       original_size, input_size, text_refiner):
     image_input, mask = sketcher_image['image'], sketcher_image['mask']
 
-    prompt = get_sketch_prompt(mask)
+    prompt = get_sketch_prompt(mask, multi_mask=False)
     boxes = prompt['input_boxes']
 
     controls = {'length': length,
