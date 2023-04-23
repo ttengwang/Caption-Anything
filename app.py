@@ -399,7 +399,7 @@ def create_ui():
         ["test_images/img5.jpg"],
         ["test_images/img12.jpg"],
         ["test_images/img14.jpg"],
-        ["test_images/img36.webp"],
+        ["test_images/qingming3.jpeg"],
         ["test_images/img1.jpg"],
     ]
 
