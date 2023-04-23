@@ -10,7 +10,7 @@ from gradio import processing_utils
 from packaging import version
 from PIL import Image, ImageDraw
 
-from caption_anything import CaptionAnything, parse_augment
+from caption_anything.caption_anything import CaptionAnything, parse_augment
 from segment_anything import sam_model_registry
 from utils.image_editing_utils import create_bubble_frame
 from utils.tools import mask_painter, download_checkpoint
@@ -363,13 +363,13 @@ def create_ui():
     description = """<p>Gradio demo for Caption Anything, image to dense captioning generation with various language styles. To use it, simply upload your image, or click one of the examples to load them. Code: <a href="https://github.com/ttengwang/Caption-Anything">https://github.com/ttengwang/Caption-Anything</a> <a href="https://huggingface.co/spaces/TencentARC/Caption-Anything?duplicate=true"><img style="display: inline; margin-top: 0em; margin-bottom: 0em" src="https://bit.ly/3gLdBN6" alt="Duplicate Space" /></a></p>"""
 
     examples = [
-        ["test_img/img35.webp"],
-        ["test_img/img2.jpg"],
-        ["test_img/img5.jpg"],
-        ["test_img/img12.jpg"],
-        ["test_img/img14.jpg"],
-        ["test_img/img0.png"],
-        ["test_img/img1.jpg"],
+        ["test_images/img35.webp"],
+        ["test_images/img2.jpg"],
+        ["test_images/img5.jpg"],
+        ["test_images/img12.jpg"],
+        ["test_images/img14.jpg"],
+        ["test_images/img36.webp"],
+        ["test_images/img1.jpg"],
     ]
 
     with gr.Blocks(
