@@ -515,7 +515,22 @@ def create_ui():
                                      outputs=[modules_need_gpt, modules_need_gpt2, modules_need_gpt3,
                                               modules_not_need_gpt,
                                               modules_not_need_gpt2, modules_not_need_gpt3, text_refiner])
-
+        enable_chatGPT_button.click(
+            lambda: (None, [], [], [[], [], []], "", "", ""),
+            [],
+            [image_input, chatbot, state, click_state, wiki_output, origin_image],
+            queue=False,
+            show_progress=False
+        )
+        openai_api_key.submit(
+            lambda: (None, [], [], [[], [], []], "", "", ""),
+            [],
+            [image_input, chatbot, state, click_state, wiki_output, origin_image],
+            queue=False,
+            show_progress=False
+        )
+        
+        
         clear_button_click.click(
             lambda x: ([[], [], []], x, ""),
             [origin_image],
@@ -523,6 +538,7 @@ def create_ui():
             queue=False,
             show_progress=False
         )
+
         clear_button_image.click(
             lambda: (None, [], [], [], [[], [], []], "", "", ""),
             [],

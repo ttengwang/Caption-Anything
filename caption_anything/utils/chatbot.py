@@ -19,22 +19,11 @@ from PIL import Image, ImageDraw, ImageOps
 from transformers import pipeline, BlipProcessor, BlipForConditionalGeneration, BlipForQuestionAnswering
 
 VISUAL_CHATGPT_PREFIX = """
-    Caption Anything Chatbox (short as CATchat) is designed to be able to assist with a wide range of text and visual related tasks, from answering simple questions to providing in-depth explanations and discussions on a wide range of topics. CATchat is able to generate human-like text based on the input it receives, allowing it to engage in natural-sounding conversations and provide responses that are coherent and relevant to the topic at hand.
+    I want you act as Caption Anything Chatbox (short as CATchat), which is designed to be able to assist with a wide range of text and visual related tasks, from answering simple questions to providing in-depth explanations and discussions on a wide range of topics. You are able to generate human-like text based on the input it receives, allowing it to engage in natural-sounding conversations and provide responses that are coherent and relevant to the topic at hand.
 
-    As a language model, CATchat can not directly read images, but it has a list of tools to finish different visual tasks. CATchat can invoke different tools to indirectly understand pictures. 
+    As a language model, you can not directly read images, but can invoke VQA tool to indirectly understand pictures, by repeatly asking questions about the objects and scene of the image. You should carefully asking informative questions to maximize your information about this image content. Each image will have a file name formed as "chat_image/xxx.png", you are very strict to the file name and will never fabricate nonexistent files.
     
-    Visual ChatGPT  has access to the following tools:"""
-
-
-# VISUAL_CHATGPT_PREFIX = """Visual ChatGPT is designed to be able to assist with a wide range of text and visual related tasks, from answering simple questions to providing in-depth explanations and discussions on a wide range of topics. Visual ChatGPT is able to generate human-like text based on the input it receives, allowing it to engage in natural-sounding conversations and provide responses that are coherent and relevant to the topic at hand.
-
-# Visual ChatGPT is able to process and understand large amounts of text and images. As a language model, Visual ChatGPT can not directly read images, but it has a list of tools to finish different visual tasks. Each image will have a file name formed as "chat_image/xxx.png", and Visual ChatGPT can invoke different tools to indirectly understand pictures. When talking about images, Visual ChatGPT is very strict to the file name and will never fabricate nonexistent files. Visual ChatGPT is able to use tools in a sequence, and is loyal to the tool observation outputs rather than faking the image content and image file name.
-
-# Visual ChatGPT is aware of the coordinate of an object in the image, which is represented as a point (X, Y) on the object. Note that (0, 0) represents the bottom-left corner of the image. 
-
-# Human may provide new figures to Visual ChatGPT with a description. The description helps Visual ChatGPT to understand this image, but Visual ChatGPT should use tools to finish following tasks, rather than directly imagine from the description.
-
-# Overall, Visual ChatGPT is a powerful visual dialogue assistant tool that can help with a wide range of tasks and provide valuable insights and information on a wide range of topics. 
+    You have access to the following tools:"""
 
 
 # TOOLS:
@@ -63,8 +52,7 @@ Previous conversation history:
 {chat_history}
 
 New input: {input}
-Since CATchat is a text language model, CATchat must use tools iteratively to observe images rather than imagination.
-The thoughts and observations are only visible for CATchat, CATchat should remember to repeat important information in the final response for Human. 
+As a language model, you must repeatly to use VQA tools to observe images. You response should be consistent with the outputs of the VQA tool instead of imagination. Do not repeat asking the same question. 
 
 Thought: Do I need to use a tool? {agent_scratchpad} (You are strictly to use the aforementioned "Thought/Action/Action Input/Observation" format as the answer.)"""
 
@@ -111,9 +99,9 @@ class VisualQuestionAnswering:
             # "Salesforce/blip-vqa-capfilt-large", torch_dtype=self.torch_dtype).to(self.device)
 
     @prompts(name="Answer Question About The Image",
-             description="useful when you need an answer for a question based on an image. "
-                         "like: what is the background color of the last image, how many cats in this figure, what is in this figure. "
-                         "The input to this tool should be a comma separated string of two, representing the image_path and the question")
+             description="VQA tool is useful when you need an answer for a question based on an image. "
+                         "like: what is the color of an object, how many cats in this figure, where is the child sitting, what does the cat doing, why is he laughing."
+                         "The input to this tool should be a comma separated string of two, representing the image path and the question.")
     def inference(self, inputs):
         image_path, question = inputs.split(",")[0], ','.join(inputs.split(',')[1:])
         raw_image = Image.open(image_path).convert('RGB')
@@ -151,12 +139,13 @@ def build_chatbot_tools(load_dict):
 class ConversationBot:
     def __init__(self, tools, api_key=""):
         # load_dict = {'VisualQuestionAnswering':'cuda:0', 'ImageCaptioning':'cuda:1',...}
-        llm = OpenAI(model_name="gpt-3.5-turbo", temperature=0, openai_api_key=api_key)
+        llm = OpenAI(model_name="gpt-3.5-turbo", temperature=0.7, openai_api_key=api_key)
         self.llm = llm
         self.memory = ConversationBufferMemory(memory_key="chat_history", output_key='output')
         self.tools = tools
         self.current_image = None
         self.point_prompt = ""
+        self.global_prompt = ""
         self.agent = initialize_agent(
             self.tools,
             self.llm,
@@ -212,7 +201,7 @@ if __name__ == '__main__':
     bot = ConversationBot(tools)
     with gr.Blocks(css="#chatbot .overflow-y-auto{height:500px}") as demo:
         with gr.Row():
-            chatbot = gr.Chatbot(elem_id="chatbot", label="Visual ChatGPT").style(height=1000,scale=0.5)
+            chatbot = gr.Chatbot(elem_id="chatbot", label="CATchat").style(height=1000,scale=0.5)
             auxwindow = gr.Chatbot(elem_id="chatbot", label="Aux Window").style(height=1000,scale=0.5)
         state = gr.State([])
         aux_state = gr.State([])

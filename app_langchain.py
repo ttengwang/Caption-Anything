@@ -7,6 +7,7 @@ from gradio import processing_utils
 
 from packaging import version
 from PIL import Image, ImageDraw
+import functools
 
 from caption_anything.model import CaptionAnything
 from caption_anything.utils.image_editing_utils import create_bubble_frame
@@ -128,7 +129,7 @@ def chat_input_callback(*args):
         return state, state
 
 def upload_callback(image_input, state, visual_chatgpt=None):
-
+    
     if isinstance(image_input, dict):  # if upload from sketcher_input, input contains image and mask
         image_input, mask = image_input['image'], image_input['mask']
 
@@ -159,7 +160,8 @@ def upload_callback(image_input, state, visual_chatgpt=None):
         img_caption, _ = model.captioner.inference_seg(image_input)
         Human_prompt = f'\nHuman: provide a new figure with path {new_image_path}. The description is: {img_caption}. This information helps you to understand this image, but you should use tools to finish following tasks, rather than directly imagine from my description. If you understand, say \"Received\". \n'
         AI_prompt = "Received."
-        visual_chatgpt.agent.memory.buffer = visual_chatgpt.agent.memory.buffer + Human_prompt + 'AI: ' + AI_prompt
+        visual_chatgpt.global_prompt = Human_prompt + 'AI: ' + AI_prompt
+        visual_chatgpt.agent.memory.buffer = visual_chatgpt.agent.memory.buffer + visual_chatgpt.global_prompt 
     state = [(None, 'Received new image, resize it to width {} and height {}: '.format(image_input.size[0], image_input.size[1]))]
 
     return state, state, image_input, click_state, image_input, image_input, image_embedding, \
@@ -306,12 +308,16 @@ def inference_traject(sketcher_image, enable_wiki, language, sentiment, factuali
 
         yield state, state, refined_image_input, wiki
 
-def clear_chat_memory(visual_chatgpt):
+def clear_chat_memory(visual_chatgpt, keep_global=False):
     if visual_chatgpt is not None:
         visual_chatgpt.memory.clear()
-        visual_chatgpt.current_image = None
         visual_chatgpt.point_prompt = ""
-    
+        if keep_global:
+            visual_chatgpt.agent.memory.buffer = visual_chatgpt.global_prompt
+        else:
+            visual_chatgpt.current_image = None
+            visual_chatgpt.global_prompt = ""
+            
 def get_style():
     current_version = version.parse(gr.__version__)
     if current_version <= version.parse('3.24.1'):
@@ -462,6 +468,21 @@ def create_ui():
                                               modules_not_need_gpt,
                                               modules_not_need_gpt2, modules_not_need_gpt3, text_refiner, visual_chatgpt])
 
+        enable_chatGPT_button.click(
+            lambda: (None, [], [], [[], [], []], "", "", ""),
+            [],
+            [image_input, chatbot, state, click_state, wiki_output, origin_image],
+            queue=False,
+            show_progress=False
+        )
+        openai_api_key.submit(
+            lambda: (None, [], [], [[], [], []], "", "", ""),
+            [],
+            [image_input, chatbot, state, click_state, wiki_output, origin_image],
+            queue=False,
+            show_progress=False
+        )
+        
         clear_button_click.click(
             lambda x: ([[], [], []], x, ""),
             [origin_image],
@@ -469,6 +490,7 @@ def create_ui():
             queue=False,
             show_progress=False
         )
+        clear_button_click.click(functools.partial(clear_chat_memory, keep_global=True), inputs=[visual_chatgpt])
         clear_button_image.click(
             lambda: (None, [], [], [[], [], []], "", "", ""),
             [],

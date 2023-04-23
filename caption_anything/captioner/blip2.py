@@ -25,7 +25,7 @@ class BLIP2Captioner(BaseCaptioner):
             image = Image.open(image)
 
         if not self.dialogue:
-            text_prompt = 'Question: what does the image show? Answer:'
+            text_prompt = 'The image shows'
             inputs = self.processor(image, text = text_prompt, return_tensors="pt").to(self.device, self.torch_dtype)
             out = self.model.generate(**inputs, max_new_tokens=50)
             captions = self.processor.decode(out[0], skip_special_tokens=True).strip()
