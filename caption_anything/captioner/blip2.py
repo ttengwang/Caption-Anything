@@ -4,7 +4,7 @@ import numpy as np
 from typing import Union
 from transformers import AutoProcessor, Blip2ForConditionalGeneration
 
-from caption_anything.utils.utils import is_platform_win
+from caption_anything.utils.utils import is_platform_win, load_image
 from .base_captioner import BaseCaptioner
 
 class BLIP2Captioner(BaseCaptioner):
@@ -21,8 +21,7 @@ class BLIP2Captioner(BaseCaptioner):
 
     @torch.no_grad()
     def inference(self, image: Union[np.ndarray, Image.Image, str], filter=False):
-        if type(image) == str: # input path
-            image = Image.open(image)
+        image = load_image(image, return_type="pil")
 
         if not self.dialogue:
             text_prompt = 'The image shows'
