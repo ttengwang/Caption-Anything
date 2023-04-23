@@ -88,7 +88,7 @@ Invoke-WebRequest https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec
 $env:OPENAI_API_KEY = '{Your_Private_Openai_Key}'
 
 # Run the Caption-Anything gradio demo.
-python app_langchain.py --captioner blip --port 6086 --segmenter base # better chatbox via langchain + VQA, requires 13G GPU memory
+python app_langchain.py --captioner blip --port 6086 --segmenter base # better chatbox via langchain + VQA
 python app_langchain.py --captioner blip --port 6086 --segmenter base --segmenter_checkpoint ./sam_vit_b_01ec64.pth  # Use the pre-downloaded SAM checkpoints
 python app.py --captioner blip --port 6086 --segmenter base 
 ```
