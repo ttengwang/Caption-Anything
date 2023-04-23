@@ -5,7 +5,7 @@ def parse_augment():
     parser.add_argument('--captioner', type=str, default="blip2")
     parser.add_argument('--segmenter', type=str, default="huge")
     parser.add_argument('--text_refiner', type=str, default="base")
-    parser.add_argument('--segmenter_checkpoint', type=str, default="segmenter/sam_vit_h_4b8939.pth")
+    parser.add_argument('--segmenter_checkpoint', type=str, default=None, help="SAM checkpoint path")
     parser.add_argument('--seg_crop_mode', type=str, default="wo_bg", choices=['wo_bg', 'w_bg'],
                         help="whether to add or remove background of the image when captioning")
     parser.add_argument('--clip_filter', action="store_true", help="use clip to filter bad captions")

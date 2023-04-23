@@ -21,7 +21,7 @@ def wrap_text(text, font, max_width):
 
 
 def create_bubble_frame(image, text, point, segmask, input_points=(), input_labels=(),
-                        font_path='times_with_simsun.ttf', font_size_ratio=0.033, point_size_ratio=0.01):
+                        font_path='assets/times_with_simsun.ttf', font_size_ratio=0.033, point_size_ratio=0.01):
     # Load the image
     if input_points is None:
         input_points = []

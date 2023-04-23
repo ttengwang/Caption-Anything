@@ -5,20 +5,22 @@ from PIL import Image, ImageDraw, ImageOps
 import numpy as np
 from typing import Union
 from segment_anything import sam_model_registry, SamPredictor, SamAutomaticMaskGenerator
+from caption_anything.utils.utils import prepare_segmenter, seg_model_map
 import matplotlib.pyplot as plt
 import PIL
 
 
 class BaseSegmenter:
-    def __init__(self, device, checkpoint, model_type='vit_h', reuse_feature=True, model=None):
+    def __init__(self, device, checkpoint, model_name='huge', reuse_feature=True, model=None):
         print(f"Initializing BaseSegmenter to {device}")
         self.device = device
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
         self.processor = None
-        self.model_type = model_type
         if model is None:
+            if checkpoint is None:
+                _, checkpoint = prepare_segmenter(model_name)
+            self.model = sam_model_registry[seg_model_map[model_name]](checkpoint=checkpoint)
             self.checkpoint = checkpoint
-            self.model = sam_model_registry[self.model_type](checkpoint=self.checkpoint)
             self.model.to(device=self.device)
         else:
             self.model = model

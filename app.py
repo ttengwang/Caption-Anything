@@ -10,47 +10,27 @@ from gradio import processing_utils
 from packaging import version
 from PIL import Image, ImageDraw
 
-from caption_anything.model import CaptionAnything, parse_augment
+from caption_anything.model import CaptionAnything
 from caption_anything.utils.image_editing_utils import create_bubble_frame
-from caption_anything.utils.utils import mask_painter, download_checkpoint
+from caption_anything.utils.utils import mask_painter, seg_model_map, prepare_segmenter
+from caption_anything.utils.parser import parse_augment
 from caption_anything.captioner import build_captioner
 from caption_anything.text_refiner import build_text_refiner
 from caption_anything.segmenter import build_segmenter
+from caption_anything.utils.chatbot import ConversationBot, build_chatbot_tools, get_new_image_name
 from segment_anything import sam_model_registry
-
-def prepare_segmenter(args):
-    """
-    Prepare segmenter model and download checkpoint if necessary.
-
-    Returns: segmenter model name from 'vit_b', 'vit_l', 'vit_h'.
-
-    """
-    seg_model_map = {
-        'base': 'vit_b',
-        'large': 'vit_l',
-        'huge': 'vit_h'
-    }
-    ckpt_url_map = {
-        'vit_b': 'https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth',
-        'vit_l': 'https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth',
-        'vit_h': 'https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth'
-    }
-    os.makedirs('result', exist_ok=True)
-    seg_model_name = seg_model_map[args.segmenter]
-    checkpoint_url = ckpt_url_map[seg_model_name]
-    folder = "~/.cache/"
-    filename = os.path.basename(checkpoint_url)
-    args.segmenter_checkpoint = os.path.join(folder, filename)
-    download_checkpoint(checkpoint_url, folder, filename)
-
-    return seg_model_name
 
 
 args = parse_augment()
-seg_model_name = prepare_segmenter(args)
 
+args = parse_augment()
+if args.segmenter_checkpoint is None:
+    _, segmenter_checkpoint = prepare_segmenter(args.segmenter)
+else:
+    segmenter_checkpoint = args.segmenter_checkpoint
+    
 shared_captioner = build_captioner(args.captioner, args.device, args)
-shared_sam_model = sam_model_registry[seg_model_name](checkpoint=args.segmenter_checkpoint).to(args.device)
+shared_sam_model = sam_model_registry[seg_model_map[args.segmenter]](checkpoint=segmenter_checkpoint).to(args.device)
 
 
 class ImageSketcher(gr.Image):
@@ -460,7 +440,7 @@ def create_ui():
                             with gr.Row(scale=0.4):
                                 clear_button_click = gr.Button(value="Clear Clicks", interactive=True)
                                 clear_button_image = gr.Button(value="Clear Image", interactive=True)
-                    with gr.Tab("Trajectory"):
+                    with gr.Tab("Trajectory (Beta)"):
                         sketcher_input = ImageSketcher(type="pil", interactive=True, brush_radius=20,
                                                        elem_id="image_sketcher")
                         with gr.Row():

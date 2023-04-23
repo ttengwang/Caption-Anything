@@ -106,6 +106,9 @@ class VisualQuestionAnswering:
         self.processor = BlipProcessor.from_pretrained("Salesforce/blip-vqa-base")
         self.model = BlipForQuestionAnswering.from_pretrained(
             "Salesforce/blip-vqa-base", torch_dtype=self.torch_dtype).to(self.device)
+        # self.processor = BlipProcessor.from_pretrained("Salesforce/blip-vqa-capfilt-large")
+        # self.model = BlipForQuestionAnswering.from_pretrained(
+            # "Salesforce/blip-vqa-capfilt-large", torch_dtype=self.torch_dtype).to(self.device)
 
     @prompts(name="Answer Question About The Image",
              description="useful when you need an answer for a question based on an image. "

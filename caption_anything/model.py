@@ -113,17 +113,17 @@ if __name__ == "__main__":
     from caption_anything.utils.parser import parse_augment
     args = parse_augment()
     # image_path = 'test_images/img3.jpg'
-    image_path = 'test_images/img13.jpg'
+    image_path = 'test_images/img1.jpg'
     prompts = [
         {
             "prompt_type": ["click"],
-            "input_point": [[500, 300], [1000, 500]],
+            "input_point": [[500, 300], [200, 500]],
             "input_label": [1, 0],
             "multimask_output": "True",
         },
         {
             "prompt_type": ["click"],
-            "input_point": [[900, 800]],
+            "input_point": [[300, 800]],
             "input_label": [1],
             "multimask_output": "True",
         }
