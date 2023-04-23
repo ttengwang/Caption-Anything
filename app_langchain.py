@@ -1,7 +1,5 @@
 import os
 import json
-from typing import List
-
 import PIL
 import gradio as gr
 import numpy as np
@@ -10,14 +8,16 @@ from gradio import processing_utils
 from packaging import version
 from PIL import Image, ImageDraw
 
-from caption_anything.caption_anything import CaptionAnything, parse_augment
+from caption_anything.model import CaptionAnything, parse_augment
+from caption_anything.utils.image_editing_utils import create_bubble_frame
+from caption_anything.utils.utils import mask_painter, download_checkpoint
+from caption_anything.captioner import build_captioner
+from caption_anything.text_refiner import build_text_refiner
+from caption_anything.segmenter import build_segmenter
+from caption_anything.utils.chatbot import ConversationBot, build_chatbot_tools, get_new_image_name
+
 from segment_anything import sam_model_registry
-from utils.image_editing_utils import create_bubble_frame
-from utils.tools import mask_painter, download_checkpoint
-from captioner import build_captioner
-from text_refiner import build_text_refiner
-from segmenter import build_segmenter
-from utils.chatbot import ConversationBot, build_chatbot_tools, get_new_image_name
+
 
 def prepare_segmenter(args):
     """

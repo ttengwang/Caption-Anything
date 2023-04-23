@@ -1,13 +1,10 @@
 import torch
-from PIL import Image, ImageDraw, ImageOps
-from transformers import AutoProcessor, Blip2ForConditionalGeneration
-import json
-import pdb
-import cv2
+from PIL import Image
 import numpy as np
 from typing import Union
+from transformers import AutoProcessor, Blip2ForConditionalGeneration
 
-from caption_anything.utils.mask_painter import is_platform_win
+from caption_anything.utils.utils import is_platform_win
 from .base_captioner import BaseCaptioner
 
 class BLIP2Captioner(BaseCaptioner):

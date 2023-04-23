@@ -10,14 +10,13 @@ from gradio import processing_utils
 from packaging import version
 from PIL import Image, ImageDraw
 
-from caption_anything.caption_anything import CaptionAnything, parse_augment
+from caption_anything.model import CaptionAnything, parse_augment
+from caption_anything.utils.image_editing_utils import create_bubble_frame
+from caption_anything.utils.utils import mask_painter, download_checkpoint
+from caption_anything.captioner import build_captioner
+from caption_anything.text_refiner import build_text_refiner
+from caption_anything.segmenter import build_segmenter
 from segment_anything import sam_model_registry
-from utils.image_editing_utils import create_bubble_frame
-from utils.tools import mask_painter, download_checkpoint
-from captioner import build_captioner
-from text_refiner import build_text_refiner
-from segmenter import build_segmenter
-
 
 def prepare_segmenter(args):
     """
@@ -39,7 +38,7 @@ def prepare_segmenter(args):
     os.makedirs('result', exist_ok=True)
     seg_model_name = seg_model_map[args.segmenter]
     checkpoint_url = ckpt_url_map[seg_model_name]
-    folder = "segmenter"
+    folder = "~/.cache/"
     filename = os.path.basename(checkpoint_url)
     args.segmenter_checkpoint = os.path.join(folder, filename)
     download_checkpoint(checkpoint_url, folder, filename)
