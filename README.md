@@ -24,6 +24,7 @@ Along the River During the Qingming Festival (清明上河图)
 <br> 
 
 ### Updates
+* 2023/04/25: We are delighted to introduce [Track-Anything](https://github.com/gaomingqi/Track-Anything), an inventive project from our lab that offers a versatile and user-friendly solution for video object tracking and segmentation.
 * 2023/04/23: support langchain + VQA, better chatbox performance
 * 2023/04/20: add mouse trajectory as visual control (beta)
 * 2023/04/13: add Colab Tutorial <a src="https://colab.research.google.com/assets/colab-badge.svg" href="https://colab.research.google.com/github/ttengwang/Caption-Anything/blob/main/notebooks/tutorial.ipynb"> <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab"> </a>
