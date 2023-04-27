@@ -29,6 +29,9 @@ def load_image(image: Union[np.ndarray, Image.Image, str], return_type='numpy'):
     elif isinstance(image, np.ndarray):
         image = Image.fromarray(image)
 
+    if image.mode == "RGBA":
+        image = image.convert("RGB")
+        
     if return_type == 'pil':
         return image
     elif return_type == 'numpy':
