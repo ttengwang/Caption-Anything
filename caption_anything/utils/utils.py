@@ -40,6 +40,34 @@ def load_image(image: Union[np.ndarray, Image.Image, str], return_type='numpy'):
         raise NotImplementedError()
 
 
+def image_resize(image: Image.Image, res=1024):
+    width, height = org_size = image.size
+    ratio = min(1.0 * res / max(width, height), 1.0)
+    if ratio < 1.0:
+        image = image.resize((int(width * ratio), int(height * ratio)))
+        print('Scaling image from {} to {}'.format(org_size, image.size))
+    return image
+        
+def xywh_to_x1y1x2y2(bbox):
+    x, y, w, h = bbox
+    return x,y,x+w,y+h
+
+
+def x1y1x2y2_to_xywh(bbox):
+    x1, y1, x2, y2 = bbox
+    return x1,y1,x2-x1,y2-y1
+
+
+def get_image_shape(image):
+    if isinstance(image, str):
+        return Image.open(image).size
+    elif isinstance(image, np.ndarray):
+        return image.shape
+    elif isinstance(image, Image.Image):
+        return image.size
+    else:
+        raise NotImplementedError
+
 def is_platform_win():
     return sys.platform == "win32"
 

@@ -179,7 +179,7 @@ def upload_callback(image_input, state):
     image_embedding = model.image_embedding
     original_size = model.original_size
     input_size = model.input_size
-    img_caption, _ = model.captioner.inference_seg(image_input)
+    img_caption, _ = model.captioner.inference_seg(image_input)['caption']
 
     return state, state, chat_state, image_input, click_state, image_input, image_input, image_embedding, \
         original_size, input_size, img_caption

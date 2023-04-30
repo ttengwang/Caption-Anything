@@ -1,6 +1,5 @@
 import os
 import json
-import PIL
 import gradio as gr
 import numpy as np
 from gradio import processing_utils
@@ -11,7 +10,7 @@ import functools
 
 from caption_anything.model import CaptionAnything
 from caption_anything.utils.image_editing_utils import create_bubble_frame
-from caption_anything.utils.utils import mask_painter, seg_model_map, prepare_segmenter
+from caption_anything.utils.utils import mask_painter, seg_model_map, prepare_segmenter, image_resize
 from caption_anything.utils.parser import parse_augment
 from caption_anything.captioner import build_captioner
 from caption_anything.text_refiner import build_text_refiner
@@ -51,9 +50,7 @@ class ImageSketcher(gr.Image):
                 mask = np.zeros((height, width, 4), dtype=np.uint8)
                 mask[..., -1] = 255
                 mask = self.postprocess(mask)
-
                 x['mask'] = mask
-
         return super().preprocess(x)
 
 
@@ -72,16 +69,19 @@ def init_openai_api_key(api_key=""):
     if api_key and len(api_key) > 30:
         try:
             text_refiner = build_text_refiner(args.text_refiner, args.device, args, api_key)
-            text_refiner.llm('hi')  # test
+            assert len(text_refiner.llm('hi')) > 0 # test
             visual_chatgpt = ConversationBot(shared_chatbot_tools, api_key)
         except:
             text_refiner = None
             visual_chatgpt = None
     openai_available = text_refiner is not None
-    return gr.update(visible=openai_available), gr.update(visible=openai_available), gr.update(
-        visible=openai_available), gr.update(visible=True), gr.update(visible=True), gr.update(
-        visible=True), text_refiner, visual_chatgpt
-
+    if openai_available:
+        return [gr.update(visible=True)]*6 + [gr.update(visible=False)]*2 + [text_refiner, visual_chatgpt, None]
+    else:
+        return [gr.update(visible=False)]*6 + [gr.update(visible=True)]*2 + [text_refiner, visual_chatgpt, 'Your OpenAI API Key is not available']
+        
+def init_wo_openai_api_key():
+        return  [gr.update(visible=False)]*4 + [gr.update(visible=True)]*2 + [gr.update(visible=False)]*2 + [None, None, None]
 
 def get_click_prompt(chat_input, click_state, click_mode):
     inputs = json.loads(chat_input)
@@ -128,18 +128,15 @@ def chat_input_callback(*args):
         state = state + [(chat_input, response)]
         return state, state
 
+
+        
 def upload_callback(image_input, state, visual_chatgpt=None):
     
     if isinstance(image_input, dict):  # if upload from sketcher_input, input contains image and mask
         image_input, mask = image_input['image'], image_input['mask']
 
     click_state = [[], [], []]
-    res = 1024
-    width, height = image_input.size
-    ratio = min(1.0 * res / max(width, height), 1.0)
-    if ratio < 1.0:
-        image_input = image_input.resize((int(width * ratio), int(height * ratio)))
-        print('Scaling input image to {}'.format(image_input.size))
+    image_input = image_resize(image_input, res=1024)
         
     model = build_caption_anything_with_models(
         args,
@@ -157,8 +154,8 @@ def upload_callback(image_input, state, visual_chatgpt=None):
         new_image_path = get_new_image_name('chat_image', func_name='upload')
         image_input.save(new_image_path)
         visual_chatgpt.current_image = new_image_path
-        img_caption = model.captioner.inference(image_input, filter=False, text_prompt='')
-        Human_prompt = f'\nHuman: provide a new figure with path {new_image_path}. The description is: {img_caption}. This information helps you to understand this image, but you should use tools to finish following tasks, rather than directly imagine from my description. If you understand, say \"Received\". \n'
+        img_caption = model.captioner.inference(image_input, filter=False, args={'text_prompt':''})['caption']
+        Human_prompt = f'\nHuman: The description of the image with path {new_image_path} is: {img_caption}. This information helps you to understand this image, but you should use tools to finish following tasks, rather than directly imagine from my description. If you understand, say \"Received\". \n'
         AI_prompt = "Received."
         visual_chatgpt.global_prompt = Human_prompt + 'AI: ' + AI_prompt
         visual_chatgpt.agent.memory.buffer = visual_chatgpt.agent.memory.buffer + visual_chatgpt.global_prompt 
@@ -199,11 +196,10 @@ def inference_click(image_input, point_prompt, click_mode, enable_wiki, language
     model.setup(image_embedding, original_size, input_size, is_image_set=True)
 
     enable_wiki = True if enable_wiki in ['True', 'TRUE', 'true', True, 'Yes', 'YES', 'yes'] else False
-    out = model.inference(image_input, prompt, controls, disable_gpt=True, enable_wiki=enable_wiki)
+    out = model.inference(image_input, prompt, controls, disable_gpt=True, enable_wiki=enable_wiki, verbose=True, args={'clip_filter': False})[0]
 
     state = state + [("Image point: {}, Input label: {}".format(prompt["input_point"], prompt["input_label"]), None)]
     state = state + [(None, "raw_caption: {}".format(out['generated_captions']['raw_caption']))]
-    wiki = out['generated_captions'].get('wiki', "")
     update_click_state(click_state, out['generated_captions']['raw_caption'], click_mode)
     text = out['generated_captions']['raw_caption']
     input_mask = np.array(out['mask'].convert('P'))
@@ -219,21 +215,22 @@ def inference_click(image_input, point_prompt, click_mode, enable_wiki, language
         point_prompt = f'You should primarly use tools on the selected regional image (description: {text}, path: {new_crop_save_path}), which is a part of the whole image (path: {visual_chatgpt.current_image}). If human mentioned some objects not in the selected region, you can use tools on the whole image.'
         visual_chatgpt.point_prompt = point_prompt
 
-    yield state, state, click_state, image_input, wiki
+    yield state, state, click_state, image_input
     if not args.disable_gpt and model.text_refiner:
         refined_caption = model.text_refiner.inference(query=text, controls=controls, context=out['context_captions'],
                                                        enable_wiki=enable_wiki)
         # new_cap = 'Original: ' + text + '. Refined: ' + refined_caption['caption']
         new_cap = refined_caption['caption']
-        wiki = refined_caption['wiki']
+        if refined_caption['wiki']:
+            state = state + [(None, "Wiki: {}".format(refined_caption['wiki']))]
         state = state + [(None, f"caption: {new_cap}")]
         refined_image_input = create_bubble_frame(origin_image_input, new_cap, (click_index[0], click_index[1]),
                                                   input_mask,
                                                   input_points=input_points, input_labels=input_labels)
-        yield state, state, click_state, refined_image_input, wiki
+        yield state, state, click_state, refined_image_input
 
 
-def get_sketch_prompt(mask: PIL.Image.Image):
+def get_sketch_prompt(mask: Image.Image):
     """
     Get the prompt for the sketcher.
     TODO: This is a temporary solution. We should cluster the sketch and get the bounding box of each cluster.
@@ -280,12 +277,11 @@ def inference_traject(sketcher_image, enable_wiki, language, sentiment, factuali
     model.setup(image_embedding, original_size, input_size, is_image_set=True)
 
     enable_wiki = True if enable_wiki in ['True', 'TRUE', 'true', True, 'Yes', 'YES', 'yes'] else False
-    out = model.inference(image_input, prompt, controls, disable_gpt=True, enable_wiki=enable_wiki)
+    out = model.inference(image_input, prompt, controls, disable_gpt=True, enable_wiki=enable_wiki)[0]
 
     # Update components and states
     state.append((f'Box: {boxes}', None))
     state.append((None, f'raw_caption: {out["generated_captions"]["raw_caption"]}'))
-    wiki = out['generated_captions'].get('wiki', "")
     text = out['generated_captions']['raw_caption']
     input_mask = np.array(out['mask'].convert('P'))
     image_input = mask_painter(np.array(image_input), input_mask)
@@ -295,18 +291,19 @@ def inference_traject(sketcher_image, enable_wiki, language, sentiment, factuali
     fake_click_index = (int((boxes[0][0] + boxes[0][2]) / 2), int((boxes[0][1] + boxes[0][3]) / 2))
     image_input = create_bubble_frame(image_input, text, fake_click_index, input_mask)
 
-    yield state, state, image_input, wiki
+    yield state, state, image_input
 
     if not args.disable_gpt and model.text_refiner:
         refined_caption = model.text_refiner.inference(query=text, controls=controls, context=out['context_captions'],
                                                        enable_wiki=enable_wiki)
 
         new_cap = refined_caption['caption']
-        wiki = refined_caption['wiki']
+        if refined_caption['wiki']:
+            state = state + [(None, "Wiki: {}".format(refined_caption['wiki']))]
         state = state + [(None, f"caption: {new_cap}")]
         refined_image_input = create_bubble_frame(origin_image_input, new_cap, fake_click_index, input_mask)
 
-        yield state, state, refined_image_input, wiki
+        yield state, state, refined_image_input
 
 def clear_chat_memory(visual_chatgpt, keep_global=False):
     if visual_chatgpt is not None:
@@ -317,7 +314,26 @@ def clear_chat_memory(visual_chatgpt, keep_global=False):
         else:
             visual_chatgpt.current_image = None
             visual_chatgpt.global_prompt = ""
-            
+
+def cap_everything(image_input, visual_chatgpt, text_refiner):
+    
+    model = build_caption_anything_with_models(
+        args,
+        api_key="",
+        captioner=shared_captioner,
+        sam_model=shared_sam_model,
+        text_refiner=text_refiner,
+        session_id=iface.app_id
+    )
+    paragraph = model.inference_cap_everything(image_input, verbose=True)
+    # state = state + [(None, f"Caption Everything: {paragraph}")]  
+    Human_prompt = f'\nThe description of the image with path {visual_chatgpt.current_image} is:\n{paragraph}\nThis information helps you to understand this image, but you should use tools to finish following tasks, rather than directly imagine from my description. If you understand, say \"Received\". \n'
+    AI_prompt = "Received."
+    visual_chatgpt.global_prompt = Human_prompt + 'AI: ' + AI_prompt
+    visual_chatgpt.agent.memory.buffer = visual_chatgpt.agent.memory.buffer + visual_chatgpt.global_prompt 
+    return paragraph
+
+    
 def get_style():
     current_version = version.parse(gr.__version__)
     if current_version <= version.parse('3.24.1'):
@@ -398,7 +414,7 @@ def create_ui():
                         with gr.Row():
                             submit_button_sketcher = gr.Button(value="Submit", interactive=True)
 
-                with gr.Column(visible=False) as modules_need_gpt:
+                with gr.Column(visible=False) as modules_need_gpt1:
                     with gr.Row(scale=1.0):
                         language = gr.Dropdown(
                             ['English', 'Chinese', 'French', "Spanish", "Arabic", "Portuguese", "Cantonese"],
@@ -429,26 +445,31 @@ def create_ui():
                             value="No",
                             label="Enable Wiki",
                             interactive=True)
-                with gr.Column(visible=True) as modules_not_need_gpt3:
-                    gr.Examples(
-                        examples=examples,
-                        inputs=[example_image],
-                    )
+                # with gr.Column(visible=True) as modules_not_need_gpt3:
+                gr.Examples(
+                    examples=examples,
+                    inputs=[example_image],
+                )
             with gr.Column(scale=0.5):
-                openai_api_key = gr.Textbox(
-                    placeholder="Input openAI API key",
-                    show_label=False,
-                    label="OpenAI API Key",
-                    lines=1,
-                    type="password")
-                with gr.Row(scale=0.5):
-                    enable_chatGPT_button = gr.Button(value="Run with ChatGPT", interactive=True, variant='primary')
-                    disable_chatGPT_button = gr.Button(value="Run without ChatGPT (Faster)", interactive=True,
-                                                       variant='primary')
-                with gr.Column(visible=False) as modules_need_gpt2:
-                    wiki_output = gr.Textbox(lines=5, label="Wiki", max_lines=5)
-                with gr.Column(visible=False) as modules_not_need_gpt2:
-                    chatbot = gr.Chatbot(label="Chat about Selected Object", ).style(height=550, scale=0.5)
+                with gr.Column(visible=True) as module_key_input:
+                    openai_api_key = gr.Textbox(
+                        placeholder="Input openAI API key",
+                        show_label=False,
+                        label="OpenAI API Key",
+                        lines=1,
+                        type="password")
+                    with gr.Row(scale=0.5):
+                        enable_chatGPT_button = gr.Button(value="Run with ChatGPT", interactive=True, variant='primary')
+                        disable_chatGPT_button = gr.Button(value="Run without ChatGPT (Faster)", interactive=True,
+                                                        variant='primary')
+                with gr.Column(visible=False) as module_notification_box:
+                    notification_box = gr.Textbox(lines=1, label="Notification", max_lines=5, show_label=False)
+                with gr.Column(visible=False) as modules_need_gpt2: 
+                    paragraph_output = gr.Textbox(lines=7, label="Describe Everything", max_lines=7)
+                with gr.Column(visible=False) as modules_need_gpt0:
+                    cap_everything_button = gr.Button(value="Caption Everything in a Paragraph", interactive=True)
+                with gr.Column(visible=False) as modules_not_need_gpt2: 
+                    chatbot = gr.Chatbot(label="Chatbox", ).style(height=550, scale=0.5)
                     with gr.Column(visible=False) as modules_need_gpt3:
                         chat_input = gr.Textbox(show_label=False, placeholder="Enter text and press Enter").style(
                             container=False)
@@ -457,36 +478,38 @@ def create_ui():
                             submit_button_text = gr.Button(value="Submit", interactive=True, variant="primary")
 
         openai_api_key.submit(init_openai_api_key, inputs=[openai_api_key],
-                              outputs=[modules_need_gpt, modules_need_gpt2, modules_need_gpt3, modules_not_need_gpt,
-                                       modules_not_need_gpt2, modules_not_need_gpt3, text_refiner, visual_chatgpt])
+                              outputs=[modules_need_gpt0, modules_need_gpt1, modules_need_gpt2, modules_need_gpt3, modules_not_need_gpt,
+                                       modules_not_need_gpt2, module_key_input, module_notification_box, text_refiner, visual_chatgpt, notification_box])
         enable_chatGPT_button.click(init_openai_api_key, inputs=[openai_api_key],
-                                    outputs=[modules_need_gpt, modules_need_gpt2, modules_need_gpt3,
+                                    outputs=[modules_need_gpt0, modules_need_gpt1, modules_need_gpt2, modules_need_gpt3,
                                              modules_not_need_gpt,
-                                             modules_not_need_gpt2, modules_not_need_gpt3, text_refiner, visual_chatgpt])
-        disable_chatGPT_button.click(init_openai_api_key,
-                                     outputs=[modules_need_gpt, modules_need_gpt2, modules_need_gpt3,
+                                             modules_not_need_gpt2, module_key_input, module_notification_box, text_refiner, visual_chatgpt, notification_box])
+        disable_chatGPT_button.click(init_wo_openai_api_key,
+                                     outputs=[modules_need_gpt0, modules_need_gpt1, modules_need_gpt2, modules_need_gpt3,
                                               modules_not_need_gpt,
-                                              modules_not_need_gpt2, modules_not_need_gpt3, text_refiner, visual_chatgpt])
-
+                                              modules_not_need_gpt2, module_key_input, module_notification_box, text_refiner, visual_chatgpt, notification_box])
+        
         enable_chatGPT_button.click(
             lambda: (None, [], [], [[], [], []], "", "", ""),
             [],
-            [image_input, chatbot, state, click_state, wiki_output, origin_image],
+            [image_input, chatbot, state, click_state, paragraph_output, origin_image],
             queue=False,
             show_progress=False
         )
         openai_api_key.submit(
             lambda: (None, [], [], [[], [], []], "", "", ""),
             [],
-            [image_input, chatbot, state, click_state, wiki_output, origin_image],
+            [image_input, chatbot, state, click_state, paragraph_output, origin_image],
             queue=False,
             show_progress=False
         )
+
+        cap_everything_button.click(cap_everything, [origin_image, visual_chatgpt, text_refiner], [paragraph_output])
         
         clear_button_click.click(
-            lambda x: ([[], [], []], x, ""),
+            lambda x: ([[], [], []], x),
             [origin_image],
-            [click_state, image_input, wiki_output],
+            [click_state, image_input],
             queue=False,
             show_progress=False
         )
@@ -494,7 +517,7 @@ def create_ui():
         clear_button_image.click(
             lambda: (None, [], [], [[], [], []], "", "", ""),
             [],
-            [image_input, chatbot, state, click_state, wiki_output, origin_image],
+            [image_input, chatbot, state, click_state, paragraph_output, origin_image],
             queue=False,
             show_progress=False
         )
@@ -511,7 +534,7 @@ def create_ui():
         image_input.clear(
             lambda: (None, [], [], [[], [], []], "", "", ""),
             [],
-            [image_input, chatbot, state, click_state, wiki_output, origin_image],
+            [image_input, chatbot, state, click_state, paragraph_output, origin_image],
             queue=False,
             show_progress=False
         )
@@ -542,7 +565,7 @@ def create_ui():
                 origin_image, point_prompt, click_mode, enable_wiki, language, sentiment, factuality, length,
                 image_embedding, state, click_state, original_size, input_size, text_refiner, visual_chatgpt
             ],
-            outputs=[chatbot, state, click_state, image_input, wiki_output],
+            outputs=[chatbot, state, click_state, image_input],
             show_progress=False, queue=True
         )
 
@@ -552,7 +575,7 @@ def create_ui():
                 sketcher_input, enable_wiki, language, sentiment, factuality, length, image_embedding, state,
                 original_size, input_size, text_refiner
             ],
-            outputs=[chatbot, state, sketcher_input, wiki_output],
+            outputs=[chatbot, state, sketcher_input],
             show_progress=False, queue=True
         )
 

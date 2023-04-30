@@ -11,7 +11,7 @@ import PIL
 
 
 class BaseSegmenter:
-    def __init__(self, device, checkpoint, model_name='huge', reuse_feature=True, model=None):
+    def __init__(self, device, checkpoint, model_name='huge', reuse_feature=True, model=None, args=None):
         print(f"Initializing BaseSegmenter to {device}")
         self.device = device
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
@@ -26,7 +26,10 @@ class BaseSegmenter:
             self.model = model
         self.reuse_feature = reuse_feature
         self.predictor = SamPredictor(self.model)
-        self.mask_generator = SamAutomaticMaskGenerator(self.model)
+        
+        sam_generator_keys = ['pred_iou_thresh', 'min_mask_region_area', 'stability_score_thresh', 'box_nms_thresh']
+        generator_args = {k:v for k,v in vars(args).items() if k in sam_generator_keys}
+        self.mask_generator = SamAutomaticMaskGenerator(model=self.model, **generator_args)
         self.image_embedding = None
         self.image = None
 
@@ -69,7 +72,9 @@ class BaseSegmenter:
         if 'everything' in control['prompt_type']:
             masks = self.mask_generator.generate(image)
             new_masks = np.concatenate([mask["segmentation"][np.newaxis, :] for mask in masks])
-            return new_masks
+            bbox = np.array([mask["bbox"] for mask in masks])
+            area = np.array([mask["area"] for mask in masks])
+            return new_masks, bbox, area
         else:
             if not self.reuse_feature or self.image_embedding is None:
                 self.set_image(image)

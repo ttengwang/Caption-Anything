@@ -20,18 +20,31 @@ class BLIP2Captioner(BaseCaptioner):
             self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b", device_map='sequential', load_in_8bit=True)
 
     @torch.no_grad()
-    def inference(self, image: Union[np.ndarray, Image.Image, str], filter=False, **kargs):
+    def inference(self, 
+                  image: Union[np.ndarray, Image.Image, str], 
+                  filter=False, 
+                  args={}):
+        args['return_ppl'] = args.get('return_ppl', False)
+        args['text_prompt'] = args.get('text_prompt', 'Question: what does the image show? Answer:')
+        args['reference_caption'] = args.get('reference_caption', [])
+        
         image = load_image(image, return_type="pil")
-
+        result = {}
         if not self.dialogue:
-            text_prompt = kargs.get('text_prompt', 'Question: what does the image show? Answer:')
-            inputs = self.processor(image, text = text_prompt, return_tensors="pt").to(self.device, self.torch_dtype)
-            out = self.model.generate(**inputs, max_new_tokens=50)
-            captions = self.processor.decode(out[0], skip_special_tokens=True).strip()
+            inputs = self.processor(image, text = args['text_prompt'], return_tensors="pt").to(self.device, self.torch_dtype)
+            out = self.model.generate(**inputs, return_dict_in_generate=True, output_scores=True, max_new_tokens=50)
+            captions = self.processor.batch_decode(out.sequences, skip_special_tokens=True)
+            caption = [caption.strip() for caption in captions][0]
             if self.enable_filter and filter:
-                captions = self.filter_caption(image, captions)
-            print(f"\nProcessed ImageCaptioning by BLIP2Captioner, Output Text: {captions}")
-            return captions
+                print('reference caption: {}, caption: {}'.format(args['reference_caption'], caption))
+                clip_score = self.filter_caption(image, caption, args['reference_caption'])
+                result['clip_score'] = clip_score
+            if args['return_ppl']:
+                ppl_score = torch.stack(out.scores, dim=1).softmax(dim=2).log().max(dim=2)[0].sum(dim=1)[0]
+                result['ppl_score'] = ppl_score.item()
+            print(f"\nProcessed ImageCaptioning by BLIP2Captioner, Output Text: {caption}")
+            result['caption'] = caption
+            return result
         else:
             context = []
             template = "Question: {} Answer: {}."
@@ -44,8 +57,8 @@ class BLIP2Captioner(BaseCaptioner):
                 out = self.model.generate(**inputs, max_new_tokens=50)
                 captions = self.processor.decode(out[0], skip_special_tokens=True).strip()
                 context.append((input_texts, captions))
-
-        return captions
+                result['caption'] = captions
+            return result
 
 if __name__ == '__main__':
 

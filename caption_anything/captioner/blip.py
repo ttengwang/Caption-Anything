@@ -20,19 +20,24 @@ class BLIPCaptioner(BaseCaptioner):
                                                                   torch_dtype=self.torch_dtype).to(self.device)
 
     @torch.no_grad()
-    def inference(self, image: Union[np.ndarray, Image.Image, str], filter=False, **kargs):
+    def inference(self, image: Union[np.ndarray, Image.Image, str], filter=False, args={}):
         image = load_image(image, return_type="pil")
         inputs = self.processor(image, return_tensors="pt").to(self.device, self.torch_dtype)
         out = self.model.generate(**inputs, max_new_tokens=50)
         captions = self.processor.decode(out[0], skip_special_tokens=True).strip()
+        
+        result = {}
         if self.enable_filter and filter:
-            captions = self.filter_caption(image, captions)
+            clip_score = self.filter_caption(image, captions)
+            result['clip_score'] = clip_score
+        result.update({'caption':captions})
         print(f"\nProcessed ImageCaptioning by BLIPCaptioner, Output Text: {captions}")
-        return captions
+        return {'caption': captions}
 
     @torch.no_grad()
     def inference_with_reduced_tokens(self, image: Union[np.ndarray, Image.Image, str], seg_mask, crop_mode="w_bg",
                                       filter=False, disable_regular_box=False):
+        result = {}
         crop_save_path = self.generate_seg_cropped_image(image=image, seg_mask=seg_mask, crop_mode=crop_mode,
                                                          disable_regular_box=disable_regular_box)
         image = load_image(image, return_type="pil")
@@ -47,9 +52,11 @@ class BLIPCaptioner(BaseCaptioner):
         out = self.model.generate(pixel_values=pixel_values, pixel_masks=pixel_masks, max_new_tokens=50)
         captions = self.processor.decode(out[0], skip_special_tokens=True).strip()
         if self.enable_filter and filter:
-            captions = self.filter_caption(image, captions)
+            clip_score = self.filter_caption(image, captions)
+            result['clip_score'] = clip_score
+        result.update({'caption':captions, 'crop_save_path':crop_save_path})
         print(f"\nProcessed ImageCaptioning by BLIPCaptioner, Output Text: {captions}")
-        return captions, crop_save_path
+        return result
 
 
 if __name__ == '__main__':

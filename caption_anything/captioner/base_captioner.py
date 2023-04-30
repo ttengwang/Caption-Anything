@@ -5,7 +5,7 @@ import json
 import pdb
 import cv2
 import numpy as np
-from typing import Union
+from typing import Any, Union, List
 import time
 import clip
 
@@ -16,13 +16,10 @@ def boundary(inputs):
     col = inputs.shape[1]
     inputs = inputs.reshape(-1)
     lens = len(inputs)
-
     start = np.argmax(inputs)
     end = lens - 1 - np.argmax(np.flip(inputs))
-
     top = start // col
     bottom = end // col
-
     return top, bottom
 
 
@@ -84,27 +81,27 @@ class BaseCaptioner:
         self.enable_filter = enable_filter
         if enable_filter:
             self.filter, self.preprocess = clip.load('ViT-B/32', device)
-        self.threshold = 0.2
 
     @torch.no_grad()
-    def filter_caption(self, image: Union[np.ndarray, Image.Image, str], caption: str):
-
+    def filter_caption(self, image: Union[np.ndarray, Image.Image, str], caption: str, reference_caption: List[str]=[]):
         image = load_image(image, return_type='pil')
-
         image = self.preprocess(image).unsqueeze(0).to(self.device)  # (1, 3, 224, 224)
-        text = clip.tokenize(caption).to(self.device)  # (1, 77)
+        captions = [caption]
+        if len(reference_caption):
+            captions.extend(reference_caption)
+        text = clip.tokenize(captions).to(self.device)  # (>1, 77)
         image_features = self.filter.encode_image(image)  # (1, 512)
-        text_features = self.filter.encode_text(text)  # (1, 512)
+        text_features = self.filter.encode_text(text) # # (>1, 512)
         image_features /= image_features.norm(dim=-1, keepdim=True)
         text_features /= text_features.norm(dim=-1, keepdim=True)
-        similarity = torch.matmul(image_features, text_features.transpose(1, 0)).item()
-        if similarity < self.threshold:
-            print('There seems to be nothing where you clicked.')
-            out = ""
+
+        if len(reference_caption):
+            similarity = torch.matmul(image_features, text_features.transpose(1, 0)) / 0.07
+            similarity = similarity.softmax(dim=1)[0, 0].item()
         else:
-            out = caption
+            similarity = torch.matmul(image_features, text_features.transpose(1, 0)).item()
         print(f'Clip score of the caption is {similarity}')
-        return out
+        return similarity
 
     def inference(self, image: Union[np.ndarray, Image.Image, str], filter: bool = False):
         raise NotImplementedError()
@@ -112,7 +109,7 @@ class BaseCaptioner:
     def inference_with_reduced_tokens(self, image: Union[np.ndarray, Image.Image, str], seg_mask, filter: bool = False):
         raise NotImplementedError()
 
-    def inference_box(self, image: Union[np.ndarray, Image.Image, str], box: Union[list, np.ndarray], filter=False):
+    def inference_box(self, image: Union[np.ndarray, Image.Image, str], box: Union[list, np.ndarray], filter=False, verbose=False, caption_args={}):
         image = load_image(image, return_type="pil")
 
         if np.array(box).size == 4:
@@ -123,23 +120,31 @@ class BaseCaptioner:
         elif np.array(box).size == 8:  # four corners of an irregular rectangle
             image_crop = cut_box(np.array(image), box)
 
-        crop_save_path = f'result/crop_{time.time()}.png'
-        Image.fromarray(image_crop).save(crop_save_path)
-        print(f'croped image saved in {crop_save_path}')
-        caption = self.inference(image_crop, filter)
-        return caption, crop_save_path
+        crop_save_path = None
+        if verbose:
+            crop_save_path = f'result/crop_{time.time()}.png'
+            Image.fromarray(image_crop).save(crop_save_path)
+            print(f'croped image saved in {crop_save_path}')
+        caption = self.inference(image_crop, filter, caption_args)
+        caption.update({'crop_save_path': crop_save_path})
+        return caption
 
-    def inference_seg(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str] = None,
-                      crop_mode="w_bg", filter=False, disable_regular_box=False):
+    def inference_seg(self, 
+                      image: Union[np.ndarray, str], 
+                      seg_mask: Union[np.ndarray, Image.Image, str] = None,
+                      crop_mode="w_bg", 
+                      filter=False, 
+                      disable_regular_box=False, 
+                      verbose=False, 
+                      caption_args={}):
         if seg_mask is None:
             seg_mask = np.ones(image.size).astype(bool)
-
+        
         image = load_image(image, return_type="pil")
         seg_mask = load_image(seg_mask, return_type="pil")
 
         seg_mask = seg_mask.resize(image.size)
         seg_mask = np.array(seg_mask) > 0
-
         if crop_mode == "wo_bg":
             image = np.array(image) * seg_mask[:, :, np.newaxis] + (1 - seg_mask[:, :, np.newaxis]) * 255
             image = np.uint8(image)
@@ -150,10 +155,13 @@ class BaseCaptioner:
             min_area_box = seg_to_box(seg_mask)
         else:
             min_area_box = new_seg_to_box(seg_mask)
-        return self.inference_box(image, min_area_box, filter)
+        return self.inference_box(image, min_area_box, filter, verbose, caption_args)
 
-    def generate_seg_cropped_image(self, image: Union[np.ndarray, str], seg_mask: Union[np.ndarray, Image.Image, str],
-                                   crop_mode="w_bg", disable_regular_box=False):
+    def generate_seg_cropped_image(self, 
+                                   image: Union[np.ndarray, str], 
+                                   seg_mask: Union[np.ndarray, Image.Image, str],
+                                   crop_mode="w_bg", 
+                                   disable_regular_box=False):
         image = load_image(image, return_type="pil")
         seg_mask = load_image(seg_mask, return_type="pil")
 

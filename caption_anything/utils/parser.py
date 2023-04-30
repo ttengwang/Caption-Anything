@@ -22,6 +22,16 @@ def parse_augment():
     parser.add_argument('--disable_reuse_features', action="store_true", default=False)
     parser.add_argument('--enable_morphologyex', action="store_true", default=False)
     parser.add_argument('--chat_tools_dict', type=str, default='VisualQuestionAnswering_cuda:0', help='Visual ChatGPT tools, only useful when running gradio applications')
+    
+    parser.add_argument('--pred_iou_thresh', type=float, default=0.88, help="sam post-precessing")  
+    parser.add_argument('--min_mask_region_area', type=int, default=0, help="sam post-precessing")
+    parser.add_argument('--stability_score_thresh', type=float, default=0.95, help='sam post-processing')
+    parser.add_argument('--box_nms_thresh', type=float, default=0.7, help='sam post-processing')
+    
+    parser.add_argument('--min_mask_area', type=int, default=0, help='sam post-processing')
+    parser.add_argument('--min_ppl_score', type=float, default=-10, help='captioner post-processing')
+    parser.add_argument('--min_clip_score', type=float, default=0.0, help='captioner post-processing')
+    
     args = parser.parse_args()
 
     if args.debug:
