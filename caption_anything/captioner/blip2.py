@@ -6,6 +6,7 @@ from transformers import AutoProcessor, Blip2ForConditionalGeneration
 
 from caption_anything.utils.utils import is_platform_win, load_image
 from .base_captioner import BaseCaptioner
+import time
 
 class BLIP2Captioner(BaseCaptioner):
     def __init__(self, device, dialogue: bool = False, enable_filter: bool = False):
@@ -33,8 +34,7 @@ class BLIP2Captioner(BaseCaptioner):
         if not self.dialogue:
             inputs = self.processor(image, text = args['text_prompt'], return_tensors="pt").to(self.device, self.torch_dtype)
             out = self.model.generate(**inputs, return_dict_in_generate=True, output_scores=True, max_new_tokens=50)
-            captions = self.processor.batch_decode(out.sequences, skip_special_tokens=True)
-            caption = [caption.strip() for caption in captions][0]
+            caption = self.processor.decode(out.sequences[0], skip_special_tokens=True).strip()
             if self.enable_filter and filter:
                 print('reference caption: {}, caption: {}'.format(args['reference_caption'], caption))
                 clip_score = self.filter_caption(image, caption, args['reference_caption'])

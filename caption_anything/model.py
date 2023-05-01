@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image
 import easyocr
 import copy
+import time
 from caption_anything.captioner import build_captioner, BaseCaptioner
 from caption_anything.segmenter import build_segmenter, build_segmenter_densecap
 from caption_anything.text_refiner import build_text_refiner
@@ -16,14 +17,15 @@ from caption_anything.utils.utils import mask_painter_foreground_all, mask_paint
 from caption_anything.utils.densecap_painter import draw_bbox
             
 class CaptionAnything:
-    def __init__(self, args, api_key="", captioner=None, segmenter=None, text_refiner=None):
+    def __init__(self, args, api_key="", captioner=None, segmenter=None, ocr_reader=None, text_refiner=None):
         self.args = args
         self.captioner = build_captioner(args.captioner, args.device, args) if captioner is None else captioner
         self.segmenter = build_segmenter(args.segmenter, args.device, args) if segmenter is None else segmenter
         self.segmenter_densecap = build_segmenter_densecap(args.segmenter, args.device, args, model=self.segmenter.model)
+        self.ocr_lang = ["ch_tra", "en"]
+        self.ocr_reader = ocr_reader if ocr_reader is not None else easyocr.Reader(self.ocr_lang)
         
-        self.lang = ["ch_tra", "en"]
-        self.reader = easyocr.Reader(self.lang)
+
         self.text_refiner = None
         if not args.disable_gpt:
             if text_refiner is not None:
@@ -31,6 +33,7 @@ class CaptionAnything:
             elif api_key != "":
                 self.init_refiner(api_key)
         self.require_caption_prompt = args.captioner == 'blip2'
+        print('text_refiner init time: ', time.time() - t0)
         
     @property
     def image_embedding(self):
@@ -213,7 +216,7 @@ class CaptionAnything:
     def parse_ocr(self, image, thres=0.2):
         width, height = get_image_shape(image)
         image = load_image(image, return_type='numpy')
-        bounds = self.reader.readtext(image)
+        bounds = self.ocr_reader.readtext(image)
         bounds = [bound for bound in bounds if bound[2] > thres]
         print('Process OCR Text:\n', bounds)
         
@@ -257,7 +260,7 @@ class CaptionAnything:
 if __name__ == "__main__":
     from caption_anything.utils.parser import parse_augment
     args = parse_augment()
-    image_path = 'image/ocr/Untitled.png'
+    image_path = 'result/wt/memes/87226084.jpg'
     image = Image.open(image_path)
     prompts = [
         {

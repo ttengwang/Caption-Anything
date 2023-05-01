@@ -17,7 +17,7 @@ from caption_anything.text_refiner import build_text_refiner
 from caption_anything.segmenter import build_segmenter
 from caption_anything.utils.chatbot import ConversationBot, build_chatbot_tools, get_new_image_name
 from segment_anything import sam_model_registry
-
+import easyocr
 
 args = parse_augment()
 if args.segmenter_checkpoint is None:
@@ -27,6 +27,8 @@ else:
     
 shared_captioner = build_captioner(args.captioner, args.device, args)
 shared_sam_model = sam_model_registry[seg_model_map[args.segmenter]](checkpoint=segmenter_checkpoint).to(args.device)
+ocr_lang = ["ch_tra", "en"]
+shared_ocr_reader = easyocr.Reader(ocr_lang)
 tools_dict = {e.split('_')[0].strip(): e.split('_')[1].strip() for e in args.chat_tools_dict.split(',')}
 shared_chatbot_tools = build_chatbot_tools(tools_dict)
 
@@ -54,13 +56,13 @@ class ImageSketcher(gr.Image):
         return super().preprocess(x)
 
 
-def build_caption_anything_with_models(args, api_key="", captioner=None, sam_model=None, text_refiner=None,
+def build_caption_anything_with_models(args, api_key="", captioner=None, sam_model=None, ocr_reader=None, text_refiner=None,
                                        session_id=None):
     segmenter = build_segmenter(args.segmenter, args.device, args, model=sam_model)
     captioner = captioner
     if session_id is not None:
         print('Init caption anything for session {}'.format(session_id))
-    return CaptionAnything(args, api_key, captioner=captioner, segmenter=segmenter, text_refiner=text_refiner)
+    return CaptionAnything(args, api_key, captioner=captioner, segmenter=segmenter, ocr_reader=ocr_reader, text_refiner=text_refiner)
 
 
 def init_openai_api_key(api_key=""):
@@ -143,6 +145,7 @@ def upload_callback(image_input, state, visual_chatgpt=None):
         api_key="",
         captioner=shared_captioner,
         sam_model=shared_sam_model,
+        ocr_reader=shared_ocr_reader,
         session_id=iface.app_id
     )
     model.segmenter.set_image(image_input)
@@ -151,6 +154,7 @@ def upload_callback(image_input, state, visual_chatgpt=None):
     input_size = model.input_size
     
     if visual_chatgpt is not None:
+        print('upload_callback: add caption to chatGPT memory')
         new_image_path = get_new_image_name('chat_image', func_name='upload')
         image_input.save(new_image_path)
         visual_chatgpt.current_image = new_image_path
@@ -189,6 +193,7 @@ def inference_click(image_input, point_prompt, click_mode, enable_wiki, language
         api_key="",
         captioner=shared_captioner,
         sam_model=shared_sam_model,
+        ocr_reader=shared_ocr_reader,
         text_refiner=text_refiner,
         session_id=iface.app_id
     )
@@ -210,6 +215,7 @@ def inference_click(image_input, point_prompt, click_mode, enable_wiki, language
     x, y = input_points[-1]
     
     if visual_chatgpt is not None:
+        print('inference_click: add caption to chatGPT memory')
         new_crop_save_path = get_new_image_name('chat_image', func_name='crop')
         Image.open(out["crop_save_path"]).save(new_crop_save_path)
         point_prompt = f'You should primarly use tools on the selected regional image (description: {text}, path: {new_crop_save_path}), which is a part of the whole image (path: {visual_chatgpt.current_image}). If human mentioned some objects not in the selected region, you can use tools on the whole image.'
@@ -270,6 +276,7 @@ def inference_traject(sketcher_image, enable_wiki, language, sentiment, factuali
         api_key="",
         captioner=shared_captioner,
         sam_model=shared_sam_model,
+        ocr_reader=shared_ocr_reader,
         text_refiner=text_refiner,
         session_id=iface.app_id
     )
@@ -322,6 +329,7 @@ def cap_everything(image_input, visual_chatgpt, text_refiner):
         api_key="",
         captioner=shared_captioner,
         sam_model=shared_sam_model,
+        ocr_reader=shared_ocr_reader,
         text_refiner=text_refiner,
         session_id=iface.app_id
     )
