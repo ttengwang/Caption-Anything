@@ -24,6 +24,7 @@ Along the River During the Qingming Festival (清明上河图)
 <br> 
 
 ### Updates
+* 2023/04/30: support caption everything in a paragraph
 * 2023/04/23: support langchain + VQA, better chatbox performance
 * 2023/04/20: add mouse trajectory as visual control (beta)
 * 2023/04/13: add Colab Tutorial <a src="https://colab.research.google.com/assets/colab-badge.svg" href="https://colab.research.google.com/github/ttengwang/Caption-Anything/blob/main/notebooks/tutorial.ipynb"> <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab"> </a>
@@ -60,8 +61,8 @@ pip install -r requirements.txt
 export OPENAI_API_KEY={Your_Private_Openai_Key}
 
 # Run the Caption-Anything gradio demo.
-python app_langchain.py --segmenter huge --captioner blip2 --port 6086 # better chatbox via langchain + VQA, requires 13G GPU memory
-python app.py --segmenter huge --captioner blip2 --port 6086 # requires 12G GPU memory
+python app_langchain.py --segmenter huge --captioner blip2 --port 6086 --min_ppl_score -1.8 --min_mask_area 2500 --clip_filter --min_clip_score 0.30 # better chatbox via langchain + VQA, requires 13G GPU memory
+python app.py --segmenter huge --captioner blip2 --port 6086 --min_ppl_score -1.8 --min_mask_area 2500 --clip_filter --min_clip_score 0.30 # requires 12G GPU memory
 #python app.py --segmenter base --captioner blip2 # requires 8.5G GPU memory
 #python app.py --segmenter base --captioner blip # requires 5.5G GPU memory
 
