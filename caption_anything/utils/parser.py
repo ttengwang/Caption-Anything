@@ -28,10 +28,6 @@ def parse_augment():
     parser.add_argument('--stability_score_thresh', type=float, default=0.95, help='sam post-processing')
     parser.add_argument('--box_nms_thresh', type=float, default=0.7, help='sam post-processing')
     
-    parser.add_argument('--min_mask_area', type=int, default=0, help='sam post-processing')
-    parser.add_argument('--min_ppl_score', type=float, default=-10, help='captioner post-processing')
-    parser.add_argument('--min_clip_score', type=float, default=0.0, help='captioner post-processing')
-    
     args = parser.parse_args()
 
     if args.debug:

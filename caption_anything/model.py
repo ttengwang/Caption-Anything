@@ -78,11 +78,11 @@ class CaptionAnything:
         args['seg_crop_mode'] = args.get('seg_crop_mode', self.args.seg_crop_mode)
         args['clip_filter'] = args.get('clip_filter', self.args.clip_filter)
         args['disable_regular_box'] = args.get('disable_regular_box', self.args.disable_regular_box)
-        args['min_mask_area'] = args.get('min_mask_area', self.args.min_mask_area)
         args['context_captions'] = args.get('context_captions', self.args.context_captions)
         args['enable_reduce_tokens'] = args.get('enable_reduce_tokens', self.args.enable_reduce_tokens)
-        args['enable_morphologyex'] = args.get('enable_morphologyex', self.args.enable_reduce_tokens)
+        args['enable_morphologyex'] = args.get('enable_morphologyex', self.args.enable_morphologyex)
         args['topN'] = args.get('topN', 10) if is_seg_everything else 1
+        args['min_mask_area'] = args.get('min_mask_area', 0)
 
         if not is_densecap:
             seg_results = self.segmenter.inference(image, prompt)
@@ -166,7 +166,7 @@ class CaptionAnything:
     def parse_dense_caption(self, image, topN=10, reference_caption=[], verbose=False):
         width, height = get_image_shape(image)
         prompt = {'prompt_type': ['everything']}
-        other_args = {
+        densecap_args = {
             'return_ppl': True, 
             'clip_filter': True, 
             'reference_caption': reference_caption,
@@ -176,17 +176,20 @@ class CaptionAnything:
             # 'seg_crop_mode': 'wo_bg',
             'disable_regular_box': False,
             'topN': topN,
+            'min_ppl_score': -1.8,
+            'min_clip_score': 0.30,
+            'min_mask_area': 2500,
             }
+            
         dense_captions = self.inference(image, prompt,
                                         controls=None, 
                                         disable_gpt=True, 
                                         verbose=verbose, 
                                         is_densecap=True, 
-                                        args=other_args)
+                                        args=densecap_args)
         print('Process Dense Captioning: \n', dense_captions)
-        # dense_captions = list(filter(lambda x: x['ppl_score'] > self.args.min_ppl_score, dense_captions))
-        dense_captions = list(filter(lambda x: x['ppl_score'] / (1+len(x['generated_captions']['raw_caption'].split())) >= self.args.min_ppl_score, dense_captions))
-        dense_captions = list(filter(lambda x: x['clip_score'] >= self.args.min_clip_score, dense_captions))
+        dense_captions = list(filter(lambda x: x['ppl_score'] / (1+len(x['generated_captions']['raw_caption'].split())) >= densecap_args['min_ppl_score'], dense_captions))
+        dense_captions = list(filter(lambda x: x['clip_score'] >= densecap_args['min_clip_score'], dense_captions))
         dense_cap_prompt = []
         for cap in dense_captions:
             x, y, w, h = cap['bbox']
@@ -219,15 +222,15 @@ class CaptionAnything:
             p0, p1, p2, p3 = box
             ocr_prompt.append('(\"{}\": X:{:.0f}, Y:{:.0f})'.format(text, (p0[0]+p1[0]+p2[0]+p3[0])/4, (p0[1]+p1[1]+p2[1]+p3[1])/4))
         ocr_prompt = '\n'.join(ocr_prompt)
+        
         # ocr_prompt = self.text_refiner.llm(f'The image have some scene texts with their locations: {ocr_prompt}. Please group these individual words into one or several phrase based on their relative positions (only give me your answer, do not show explanination)').strip()
         
         # ocr_prefix1 = f'The image have some scene texts with their locations: {ocr_prompt}. Please group these individual words into one or several phrase based on their relative positions (only give me your answer, do not show explanination)'
         # ocr_prefix2 = f'Please group these individual words into 1-3 phrases, given scene texts with their locations: {ocr_prompt}. You return is one or several strings and infer their locations. (only give me your answer like (“man working”, X: value, Y: value), do not show explanination)'
-        ocr_prefix3 = f'combine the individual scene text words detected by OCR tools into one/several fluent phrases/sentences based on their positions and distances. You should strictly copy or correct all of the given scene text words. Do not miss any given word. Do not create non-exist words. The response is several strings seperate with their location (X, Y), each of which represents a phrase. The individual words are given:\n{ocr_prompt}\n'
-        # 
         # ocr_prefix4 = f'summarize the individual scene text words detected by OCR tools into a fluent sentence based on their positions and distances. You should strictly describe all of the given scene text words. Do not miss any given word. Do not create non-exist words. Do not appear numeric positions. The individual words are given:\n{ocr_prompt}\n'
-        response = self.text_refiner.llm(ocr_prefix3).strip() if len(ocr_prompt) else ""
-        return response
+        # ocr_prefix3 = f'combine the individual scene text words detected by OCR tools into one/several fluent phrases/sentences based on their positions and distances. You should strictly copy or correct all of the given scene text words. Do not miss any given word. Do not create non-exist words. The response is several strings seperate with their location (X, Y), each of which represents a phrase. The individual words are given:\n{ocr_prompt}\n'
+        # response = self.text_refiner.llm(ocr_prefix3).strip() if len(ocr_prompt) else ""
+        return ocr_prompt
     
     def inference_cap_everything(self, image, verbose=False):
         image = load_image(image, return_type='pil')
@@ -236,13 +239,13 @@ class CaptionAnything:
         other_args = {'text_prompt': ""} if self.require_caption_prompt else {}
         img_caption = self.captioner.inference(image, filter=False, args=other_args)['caption']
         dense_caption_prompt = self.parse_dense_caption(image, topN=10, verbose=verbose, reference_caption=[])
-        # scene_text_prompt = self.parse_ocr(image, thres=0.2)
-        scene_text_prompt = "N/A"
+        scene_text_prompt = self.parse_ocr(image, thres=0.2)
+        # scene_text_prompt = "N/A"
         
         # the summarize_prompt is modified from https://github.com/JialianW/GRiT and https://github.com/showlab/Image2Paragraph
         summarize_prompt = "Imagine you are a blind but intelligent image captioner. You should generate a descriptive, coherent and human-like paragraph based on the given information (a,b,c,d) instead of imagination:\na) Image Resolution: {image_size}\nb) Image Caption:{image_caption}\nc) Dense Caption: {dense_caption}\nd) Scene Text: {scene_text}\nThere are some rules for your response: Show objects with their attributes (e.g. position, color, size, shape, texture).\nPrimarily describe common objects with large size.\nProvide context of the image.\nShow relative position between objects.\nLess than 6 sentences.\nDo not appear number.\nDo not describe any individual letter.\nDo not show the image resolution.\nIngore the white background."
         prompt = summarize_prompt.format(**{
-            "image_size": "{}x{}".format(width, height),
+            "image_size": "width {} height {}".format(width, height),
             "image_caption":img_caption, 
             "dense_caption": dense_caption_prompt,
             "scene_text": scene_text_prompt})
@@ -254,7 +257,7 @@ class CaptionAnything:
 if __name__ == "__main__":
     from caption_anything.utils.parser import parse_augment
     args = parse_augment()
-    image_path = '/group/30042/wybertwang/project/woa_visgpt/chatARC/image/ocr/Untitled.png'
+    image_path = 'image/ocr/Untitled.png'
     image = Image.open(image_path)
     prompts = [
         {
@@ -279,49 +282,11 @@ if __name__ == "__main__":
     }
 
     model = CaptionAnything(args, os.environ['OPENAI_API_KEY'])
-    # img_dir = 'test_images/memes'
-    # for image_file in os.listdir(img_dir):
-    #     image_path = os.path.join(img_dir, image_file)  
-    #     print('image_path:', image_path)
-    #     # paragraph = model.inference_cap_everything(image_path, verbose=True)
-    #     # print('Caption Everything:\n', paragraph)    
-    #     ocr = model.parse_ocr(image_path)
-    #     print('OCR', ocr) 
-        
-    # image_path = 'test_images/img35.webp'
-    # image_path = 'test_images/GOT_S7_Dany and entourage.jpg'
-    # image_path = 'test_images/1121682501905_.pic.jpg'
-    # paragraph = model.inference_cap_everything(image_path, verbose=True)
-    # print('Caption Everything:\n', paragraph)
-    
-    image_path = 'test_images/memes/FjzFHKAWAA0lSAt.jpg'
-    ocr = model.parse_ocr(image_path)
-    print('OCR', ocr) 
-
-    # model = CaptionAnything(args, os.environ['OPENAI_API_KEY'])
-    # for prompt in prompts:
-    #     print('*' * 30)
-    #     print('Image path: ', image_path)
-    #     image = Image.open(image_path)
-    #     print(image)
-    #     print('Visual controls (SAM prompt):\n', prompt)
-    #     print('Language controls:\n', controls)
-        
-    #     caption = model.inference(image_path, prompt, controls, verbose=True)
-    #     print(f'caption anything with prompt: {caption}')
-    #     print(f'caption everything: {paragraph}')
-    
-    # image_path = 'test_images/img14.jpg'
-    # image_path = 'test_images/img35.webp'
-    # image = Image.open(image_path)
-    
-    # model = CaptionAnything(args, os.environ['OPENAI_API_KEY'])
-    # prompt = {'prompt_type': ['everything']}
-    # other_args = {'text_prompt': ""}
-    # img_caption = model.captioner.inference(image, filter=False, **other_args)['caption']
-    # dense_captions = model.parse_dense_caption(image, topN=24, verbose=True, reference_caption=[img_caption])
-    # ocr_text = model.parse_ocr(image)
-    # print('Dense Captions Prompt:\n', dense_captions)
-    # print('OCR Text Prompt:\n', ocr_text)
-    # dense_captions = model.inference(image, prompt, controls=None, disable_gpt=True, verbose=True, seg_crop_mode='w_bg')
-    
+    img_dir = 'test_images/memes'
+    for image_file in os.listdir(img_dir):
+        image_path = os.path.join(img_dir, image_file)  
+        print('image_path:', image_path)
+        paragraph = model.inference_cap_everything(image_path, verbose=True)
+        print('Caption Everything:\n', paragraph)    
+        ocr = model.parse_ocr(image_path)
+        print('OCR', ocr)

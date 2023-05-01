@@ -14,6 +14,7 @@ def draw_bbox(img: Union[np.ndarray, str], save_name: str, bbox: List[dict], sho
         
     RGB = [0, 50, 100, 150, 200, 250]
     for box in bbox:
+        box['bbox'] = [int(_) for _ in box['bbox']]
         x1, y1, x2, y2 = box['bbox']
         caption = box['caption']
         box_color = random.choices(RGB, k = 3)
