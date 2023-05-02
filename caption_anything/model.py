@@ -33,7 +33,6 @@ class CaptionAnything:
             elif api_key != "":
                 self.init_refiner(api_key)
         self.require_caption_prompt = args.captioner == 'blip2'
-        print('text_refiner init time: ', time.time() - t0)
         
     @property
     def image_embedding(self):

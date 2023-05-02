@@ -62,10 +62,9 @@ pip install -r requirements.txt
 export OPENAI_API_KEY={Your_Private_Openai_Key}
 
 # Run the Caption-Anything gradio demo.
-python app_langchain.py --segmenter huge --captioner blip2 --port 6086 --min_ppl_score -1.8 --min_mask_area 2500 --clip_filter --min_clip_score 0.30 # better chatbox via langchain + VQA, requires 13G GPU memory
-python app.py --segmenter huge --captioner blip2 --port 6086 --min_ppl_score -1.8 --min_mask_area 2500 --clip_filter --min_clip_score 0.30 # requires 12G GPU memory
-#python app.py --segmenter base --captioner blip2 # requires 8.5G GPU memory
-#python app.py --segmenter base --captioner blip # requires 5.5G GPU memory
+python app_langchain.py --segmenter huge --captioner blip2 --port 6086  --clip_filter  # requires 13G GPU memory
+#python app_langchain.py --segmenter base --captioner blip2 # requires 8.5G GPU memory
+#python app_langchain.py --segmenter base --captioner blip # requires 5.5G GPU memory
 
 # (Optional) Use the pre-downloaded SAM checkpoints
 wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth ./sam_vit_h_4b8939.pth
