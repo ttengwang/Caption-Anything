@@ -3,9 +3,6 @@
 </div>
 <div align="center">
 <!-- <h1 align="center"> Caption Anything </h1> -->
-<a src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" href="https://huggingface.co/spaces/TencentARC/Caption-Anything">
-    <img src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" alt="Open in Spaces">
-</a>
 <a src="https://colab.research.google.com/assets/colab-badge.svg" href="https://colab.research.google.com/github/ttengwang/Caption-Anything/blob/main/notebooks/tutorial.ipynb">
     <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab">
 </a>
@@ -32,7 +29,6 @@ Along the River During the Qingming Festival (清明上河图)
 * 2023/04/23: support langchain + VQA, better chatbox performance
 * 2023/04/20: add mouse trajectory as visual control (beta)
 * 2023/04/13: add Colab Tutorial <a src="https://colab.research.google.com/assets/colab-badge.svg" href="https://colab.research.google.com/github/ttengwang/Caption-Anything/blob/main/notebooks/tutorial.ipynb"> <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab"> </a>
-* 2023/04/12: add Hugging Face demo <a src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" href="https://huggingface.co/spaces/TencentARC/Caption-Anything"> <img src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" alt="Open in Spaces"></a>
 * 2023/04/11: Release code
 
 ### :joystick: Demo
