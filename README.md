@@ -3,9 +3,6 @@
 </div>
 <div align="center">
 <!-- <h1 align="center"> Caption Anything </h1> -->
-<a src="https://img.shields.io/badge/arXiv-2305.02677-b31b1b.svg" href="https://arxiv.org/abs/2305.02677">
-<img src="https://img.shields.io/badge/arXiv-2305.02677-b31b1b.svg">
-</a>
 <a src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" href="https://huggingface.co/spaces/TencentARC/Caption-Anything">
     <img src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" alt="Open in Spaces">
 </a>
@@ -16,8 +13,6 @@
 <img src="https://img.shields.io/badge/%F0%9F%9A%80-SUSTech_VIP_Lab-important.svg">
 </a>
 </div>
-
-Official implementation of [Caption Anything: Interactive Image Description with Diverse Multimodal Controls](https://arxiv.org/abs/2305.02677).
 
 ***Caption-Anything*** is a versatile image processing tool that combines the capabilities of [Segment Anything](https://github.com/facebookresearch/segment-anything), Visual Captioning, and [ChatGPT](https://openai.com/blog/chatgpt). Our solution generates descriptive captions for any object within an image, offering a range of language styles to accommodate diverse user preferences. It supports visual controls (mouse click) and language controls (length, sentiment, factuality, and language).
 * Visual controls and language controls for text generation
@@ -32,7 +27,6 @@ Along the River During the Qingming Festival (清明上河图)
 <br> 
 
 ### :rocket: Updates
-* 2023/05/05: We release our technical report, See [Caption Anything: Interactive Image Description with Diverse Multimodal Controls](https://arxiv.org/abs/2305.02677) for details.
 * 2023/04/30: support caption everything in a paragraph
 * 2023/04/25: We are delighted to introduce [Track-Anything](https://github.com/gaomingqi/Track-Anything), an inventive project from our lab that offers a versatile and user-friendly solution for video object tracking and segmentation.
 * 2023/04/23: support langchain + VQA, better chatbox performance
