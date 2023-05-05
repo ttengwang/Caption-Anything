@@ -10,7 +10,7 @@ from PIL import Image
 
 from caption_anything.model import CaptionAnything
 from caption_anything.utils.image_editing_utils import create_bubble_frame
-from caption_anything.utils.utils import mask_painter, seg_model_map, prepare_segmenter
+from caption_anything.utils.utils import mask_painter, seg_model_map, prepare_segmenter, is_platform_win
 from caption_anything.utils.parser import parse_augment
 from caption_anything.captioner import build_captioner
 from caption_anything.text_refiner import build_text_refiner
@@ -179,7 +179,7 @@ def upload_callback(image_input, state):
     image_embedding = model.image_embedding
     original_size = model.original_size
     input_size = model.input_size
-    img_caption, _ = model.captioner.inference_seg(image_input)['caption']
+    img_caption = model.captioner.inference_seg(image_input)['caption']
 
     return state, state, chat_state, image_input, click_state, image_input, image_input, image_embedding, \
         original_size, input_size, img_caption
@@ -216,7 +216,7 @@ def inference_click(image_input, point_prompt, click_mode, enable_wiki, language
     model.setup(image_embedding, original_size, input_size, is_image_set=True)
 
     enable_wiki = True if enable_wiki in ['True', 'TRUE', 'true', True, 'Yes', 'YES', 'yes'] else False
-    out = model.inference(image_input, prompt, controls, disable_gpt=True, enable_wiki=enable_wiki)
+    out = model.inference(image_input, prompt, controls, disable_gpt=True, enable_wiki=enable_wiki)[0]
 
     state = state + [("Image point: {}, Input label: {}".format(prompt["input_point"], prompt["input_label"]), None)]
     state = state + [(None, "raw_caption: {}".format(out['generated_captions']['raw_caption']))]
@@ -315,7 +315,7 @@ def inference_traject(sketcher_image, enable_wiki, language, sentiment, factuali
                       original_size, input_size, text_refiner):
     image_input, mask = sketcher_image['image'], sketcher_image['mask']
 
-    prompt = get_sketch_prompt(mask, multi_mask=False)
+    prompt = get_sketch_prompt(mask, multi_mask=True)
     boxes = prompt['input_boxes']
 
     controls = {'length': length,
@@ -335,7 +335,8 @@ def inference_traject(sketcher_image, enable_wiki, language, sentiment, factuali
     model.setup(image_embedding, original_size, input_size, is_image_set=True)
 
     enable_wiki = True if enable_wiki in ['True', 'TRUE', 'true', True, 'Yes', 'YES', 'yes'] else False
-    out = model.inference(image_input, prompt, controls, disable_gpt=True, enable_wiki=enable_wiki)
+    out = model.combined_inference(image_input, prompt, controls, disable_gpt=True, enable_wiki=enable_wiki,
+                                   enable_morphologyex=True)
 
     # Update components and states
     state.append((f'Box: {boxes}', None))
@@ -419,7 +420,7 @@ def create_ui():
             with gr.Column(scale=1.0):
                 with gr.Column(visible=False) as modules_not_need_gpt:
                     with gr.Tab("Click"):
-                        image_input = gr.Image(type="pil", interactive=True, elem_id="image_upload")
+                        image_input = gr.Image(type="pil", interactive=True, elem_id="image_upload").style(height=500)
                         example_image = gr.Image(type="pil", interactive=False, visible=False)
                         with gr.Row(scale=1.0):
                             with gr.Row(scale=0.4):
@@ -438,8 +439,10 @@ def create_ui():
                                 clear_button_image = gr.Button(value="Clear Image", interactive=True)
                     with gr.Tab("Trajectory (Beta)"):
                         sketcher_input = ImageSketcher(type="pil", interactive=True, brush_radius=20,
-                                                       elem_id="image_sketcher")
+                                                       elem_id="image_sketcher").style(height=500)
                         with gr.Row():
+                            clear_button_traj = gr.Button(value="Clear Trajectory", interactive=True)
+                            clear_button_traj_img = gr.Button(value="Clear Image", interactive=True)
                             submit_button_sketcher = gr.Button(value="Submit", interactive=True)
 
                 with gr.Column(visible=False) as modules_need_gpt:
@@ -525,8 +528,7 @@ def create_ui():
             queue=False,
             show_progress=False
         )
-        
-        
+
         clear_button_click.click(
             lambda x: ([[], [], []], x, ""),
             [origin_image],
@@ -553,6 +555,21 @@ def create_ui():
             lambda: (None, [], [], [], [[], [], []], "", "", ""),
             [],
             [image_input, chatbot, state, chat_state, click_state, wiki_output, origin_image, img_caption],
+            queue=False,
+            show_progress=False
+        )
+
+        clear_button_traj.click(
+            lambda x: (x, ""),
+            [origin_image],
+            [sketcher_input, wiki_output],
+            queue=False,
+            show_progress=False
+        )
+        clear_button_traj_img.click(
+            lambda: (None, [], [], [], "", "", ""),
+            [],
+            [sketcher_input, chatbot, state, chat_state, wiki_output, origin_image, img_caption],
             queue=False,
             show_progress=False
         )
@@ -597,4 +614,5 @@ def create_ui():
 if __name__ == '__main__':
     iface = create_ui()
     iface.queue(concurrency_count=5, api_open=False, max_size=10)
-    iface.launch(server_name="0.0.0.0", enable_queue=True, server_port=args.port, share=args.gradio_share)
+    iface.launch(server_name="0.0.0.0" if not is_platform_win() else None, enable_queue=True, server_port=args.port,
+                 share=args.gradio_share)

@@ -8,6 +8,7 @@ from caption_anything.utils.utils import is_platform_win, load_image
 from .base_captioner import BaseCaptioner
 import time
 
+
 class BLIP2Captioner(BaseCaptioner):
     def __init__(self, device, dialogue: bool = False, enable_filter: bool = False):
         super().__init__(device, enable_filter)
@@ -16,19 +17,22 @@ class BLIP2Captioner(BaseCaptioner):
         self.torch_dtype = torch.float16 if 'cuda' in device else torch.float32
         self.processor = AutoProcessor.from_pretrained("Salesforce/blip2-opt-2.7b")
         if is_platform_win():
-            self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b", device_map="sequential", torch_dtype=self.torch_dtype)
+            self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b",
+                                                                       device_map="sequential",
+                                                                       torch_dtype=self.torch_dtype)
         else:
-            self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b", device_map='sequential', load_in_8bit=True)
+            self.model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b",
+                                                                       device_map='sequential', load_in_8bit=True)
 
     @torch.no_grad()
-    def inference(self, 
-                  image: Union[np.ndarray, Image.Image, str], 
-                  filter=False, 
+    def inference(self,
+                  image: Union[np.ndarray, Image.Image, str],
+                  filter=False,
                   args={}):
         args['return_ppl'] = args.get('return_ppl', False)
         args['text_prompt'] = args.get('text_prompt', 'Question: what does the image show? Answer:')
         args['reference_caption'] = args.get('reference_caption', [])
-        
+
         image = load_image(image, return_type="pil")
         result = {}
         if not self.dialogue:
@@ -48,24 +52,25 @@ class BLIP2Captioner(BaseCaptioner):
         else:
             context = []
             template = "Question: {} Answer: {}."
-            while(True):
+            while True:
                 input_texts = input()
                 if input_texts == 'end':
                     break
-                prompt = " ".join([template.format(context[i][0], context[i][1]) for i in range(len(context))]) + " Question: " + input_texts + " Answer:"
-                inputs = self.processor(image, text = prompt, return_tensors="pt").to(self.device, self.torch_dtype)
+                prompt = " ".join([template.format(context[i][0], context[i][1]) for i in
+                                   range(len(context))]) + " Question: " + input_texts + " Answer:"
+                inputs = self.processor(image, text=prompt, return_tensors="pt").to(self.device, self.torch_dtype)
                 out = self.model.generate(**inputs, max_new_tokens=50)
                 captions = self.processor.decode(out[0], skip_special_tokens=True).strip()
                 context.append((input_texts, captions))
                 result['caption'] = captions
             return result
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
     dialogue = False
-    model = BLIP2Captioner(device='cuda:4', dialogue = dialogue, cache_dir = '/nvme-ssd/fjj/Caption-Anything/model_cache')
+    model = BLIP2Captioner(device='cuda:4', dialogue=dialogue, cache_dir='/nvme-ssd/fjj/Caption-Anything/model_cache')
     image_path = 'test_images/img2.jpg'
-    seg_mask = np.zeros((224,224))
+    seg_mask = np.zeros((224, 224))
     seg_mask[50:200, 50:200] = 1
     print(f'process image {image_path}')
     print(model.inference_seg(image_path, seg_mask))
