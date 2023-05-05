@@ -3,6 +3,9 @@
 </div>
 <div align="center">
 <!-- <h1 align="center"> Caption Anything </h1> -->
+<a src="https://img.shields.io/badge/arXiv-2305.02677-b31b1b.svg" href="https://arxiv.org/abs/2305.02677">
+<img src="https://img.shields.io/badge/arXiv-2305.02677-b31b1b.svg">
+</a>
 <a src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" href="https://huggingface.co/spaces/TencentARC/Caption-Anything">
     <img src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" alt="Open in Spaces">
 </a>
@@ -10,6 +13,8 @@
     <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab">
 </a>
 </div>
+
+Official implementation of [Caption Anything: Interactive Image Description with Diverse Multimodal Controls](https://arxiv.org/abs/2305.02677).
 
 ***Caption-Anything*** is a versatile image processing tool that combines the capabilities of [Segment Anything](https://github.com/facebookresearch/segment-anything), Visual Captioning, and [ChatGPT](https://openai.com/blog/chatgpt). Our solution generates descriptive captions for any object within an image, offering a range of language styles to accommodate diverse user preferences. It supports visual controls (mouse click) and language controls (length, sentiment, factuality, and language).
 * Visual controls and language controls for text generation
@@ -23,7 +28,8 @@ Along the River During the Qingming Festival (清明上河图)
 </div>
 <br> 
 
-### Updates
+### :rocket: Updates
+* 2023/05/05: We release our technical report, See [Caption Anything: Interactive Image Description with Diverse Multimodal Controls](https://arxiv.org/abs/2305.02677) for details.
 * 2023/04/30: support caption everything in a paragraph
 * 2023/04/25: We are delighted to introduce [Track-Anything](https://github.com/gaomingqi/Track-Anything), an inventive project from our lab that offers a versatile and user-friendly solution for video object tracking and segmentation.
 * 2023/04/23: support langchain + VQA, better chatbox performance
@@ -32,7 +38,7 @@ Along the River During the Qingming Festival (清明上河图)
 * 2023/04/12: add Hugging Face demo <a src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" href="https://huggingface.co/spaces/TencentARC/Caption-Anything"> <img src="https://img.shields.io/badge/%F0%9F%A4%97-Open%20in%20Spaces-blue" alt="Open in Spaces"></a>
 * 2023/04/11: Release code
 
-### Demo
+### :joystick: Demo
 Explore the interactive demo of Caption-Anything, which showcases its powerful capabilities in generating captions for various objects within an image. The demo allows users to control visual aspects by clicking on objects, as well as to adjust textual properties such as length, sentiment, factuality, and language.
 
 ---
@@ -47,7 +53,7 @@ Explore the interactive demo of Caption-Anything, which showcases its powerful c
 
 ![](./assets/demo2.png)
 
-### Getting Started
+### :hammer_and_wrench: Getting Started
 
 #### Linux
 ```bash
@@ -94,7 +100,7 @@ python app_langchain.py --captioner blip --port 6086 --segmenter base --segmente
 python app.py --captioner blip --port 6086 --segmenter base 
 ```
 
-## Usage
+## :computer: Usage
 ```python
 from caption_anything import CaptionAnything, parse_augment
 args = parse_augment()
@@ -113,7 +119,7 @@ language_controls = {
 model = CaptionAnything(args, openai_api_key)
 out = model.inference(image_path, visual_controls, language_controls)
 ```
-## Citation
+## :book: Citation
 If you find this work useful for your research, please cite our github repo:
 
 ```bibtex
