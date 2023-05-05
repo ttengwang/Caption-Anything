@@ -12,6 +12,9 @@
 <a src="https://colab.research.google.com/assets/colab-badge.svg" href="https://colab.research.google.com/github/ttengwang/Caption-Anything/blob/main/notebooks/tutorial.ipynb">
     <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab">
 </a>
+<a src="https://img.shields.io/badge/%F0%9F%9A%80-SUSTech_VIP_Lab-important.svg" href="https://zhengfenglab.com/">
+<img src="https://img.shields.io/badge/%F0%9F%9A%80-SUSTech_VIP_Lab-important.svg">
+</a>
 </div>
 
 Official implementation of [Caption Anything: Interactive Image Description with Diverse Multimodal Controls](https://arxiv.org/abs/2305.02677).
