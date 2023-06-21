@@ -116,11 +116,11 @@ out = model.inference(image_path, visual_controls, language_controls)
 If you find this work useful for your research, please cite our github repo:
 
 ```bibtex
-@misc{wang2023caption,
-    title = {Caption Anything},
-    author = {Teng Wang and Jinrui Zhang and Junjie Fei and Hao Zheng and Zhe Li and Yunlong Tang and Mingqi Gao},
-    howpublished = {\url{https://github.com/ttengwang/Caption-Anything}},
-    year = {2023}
+@article{wang2023caption,
+  title={Caption anything: Interactive image description with diverse multimodal controls},
+  author={Wang, Teng and Zhang, Jinrui and Fei, Junjie and Ge, Yixiao and Zheng, Hao and Tang, Yunlong and Li, Zhe and Gao, Mingqi and Zhao, Shanshan and Shan, Ying and Zheng, Feng},
+  journal={arXiv preprint arXiv:2305.02677},
+  year={2023}
 }
 ```
 ## Acknowledgements
