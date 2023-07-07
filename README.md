@@ -3,6 +3,9 @@
 </div>
 <div align="center">
 <!-- <h1 align="center"> Caption Anything </h1> -->
+<a src="https://img.shields.io/badge/arXiv-2305.02677-b31b1b.svg" href="https://arxiv.org/abs/2305.02677">
+    <img src="https://img.shields.io/badge/arXiv-2305.02677-b31b1b.svg">
+</a>
 <a src="https://colab.research.google.com/assets/colab-badge.svg" href="https://colab.research.google.com/github/ttengwang/Caption-Anything/blob/main/notebooks/tutorial.ipynb">
     <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab">
 </a>
@@ -11,7 +14,7 @@
 </a>
 </div>
 
-***Caption-Anything*** is a versatile image processing tool that combines the capabilities of [Segment Anything](https://github.com/facebookresearch/segment-anything), Visual Captioning, and [ChatGPT](https://openai.com/blog/chatgpt). Our solution generates descriptive captions for any object within an image, offering a range of language styles to accommodate diverse user preferences. It supports visual controls (mouse click) and language controls (length, sentiment, factuality, and language).
+[***Caption-Anything***](https://arxiv.org/abs/2305.02677) is a versatile image processing tool that combines the capabilities of [Segment Anything](https://github.com/facebookresearch/segment-anything), Visual Captioning, and [ChatGPT](https://openai.com/blog/chatgpt). Our solution generates descriptive captions for any object within an image, offering a range of language styles to accommodate diverse user preferences. It supports visual controls (mouse click) and language controls (length, sentiment, factuality, and language).
 * Visual controls and language controls for text generation
 * Chat about selected object for detailed understanding
 * Interactive demo
